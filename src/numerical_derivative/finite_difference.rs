@@ -53,10 +53,20 @@ impl<T: Numeric> FiniteDifferenceConfig<T> {
         }
     }
 
-    /// Returns [`CalcError::StepSizeZero`] if the step size is zero.
-    fn check_step_size(&self) -> Result<(), CalcError> {
-        if self.step_size == T::ZERO {
-            return Err(CalcError::StepSizeZero);
+    /// Returns the forward difference numerical differentiation for single variable functions.
+    /// Computes f'(x) = (f(x + h) - f(x))/h, where h is the chosen step size.
+    /// You can control how many times to differentiate using the "order" parameter.
+    fn get_forward_difference_single_variable<T: ComplexFloat>(
+        &self,
+        order: usize,
+        func: &dyn Fn(T) -> T,
+        point: T,
+        step_size: f64,
+    ) -> T {
+        if order == 1 {
+            let f0 = func(point);
+            let f1 = func(point + T::from(step_size).unwrap());
+            return (f1 - f0) / (T::from(step_size).unwrap());
         }
         Ok(())
     }

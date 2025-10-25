@@ -13,7 +13,7 @@ keywords = ["Math", "Science", "Calculus", "Differentiation", "Integration"]
 categories = ["mathematics", "science", "no-std"]
 
 [dependencies]
-const_poly = "0.0.3"
+const_poly = "0.0.4"
 num-complex = "0.4.6"
 
 [dev-dependencies]
