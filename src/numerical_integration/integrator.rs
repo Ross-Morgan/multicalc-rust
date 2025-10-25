@@ -1,14 +1,22 @@
-use crate::numeric::Numeric;
-use crate::utils::error_codes::CalcError;
+use const_poly::Polynomial;
 
-/// Classification of an integration interval, distinguishing finite domains from the
-/// three infinite/semi-infinite shapes that need a domain transform.
-pub(crate) enum Domain<T: Numeric> {
-    Finite(T, T),
-    LowerToInf(T),
-    UpperToInf(T),
-    BothInf,
-}
+///Base trait for single variable numerical integration
+pub trait IntegratorSingleVariable: Default + Clone + Copy {
+    ///generic n-th integration of a single variable function
+    fn get<const NUM_INTEGRATIONS: usize>(
+        &self,
+        number_of_integrations: usize,
+        func: &Polynomial<1>,
+        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
+    ) -> Result<f64, &'static str>;
+
+    ///convenience wrapper for a single integral of a single variable function
+    fn get_single(
+        &self,
+        func: &Polynomial<1>,
+        integration_limit: &[f64; 2],
+    ) -> Result<f64, &'static str> {
+        let new_limits: [[f64; 2]; 1] = [*integration_limit];
 
 /// Validates a single integration limit and classifies its domain.
 ///
@@ -19,12 +27,14 @@ pub(crate) fn classify<T: Numeric>(limit: &[T; 2]) -> Result<Domain<T>, CalcErro
     if a.is_nan() || b.is_nan() {
         return Err(CalcError::IntegrationLimitsIllDefined);
     }
-    match (a.is_finite(), b.is_finite()) {
-        (true, true) if a < b => Ok(Domain::Finite(a, b)),
-        (true, false) if b > T::ZERO => Ok(Domain::LowerToInf(a)), // (a, +inf); rejects (a, -inf)
-        (false, true) if a < T::ZERO => Ok(Domain::UpperToInf(b)), // (-inf, b); rejects (+inf, b)
-        (false, false) if a < T::ZERO && b > T::ZERO => Ok(Domain::BothInf), // (-inf, +inf)
-        _ => Err(CalcError::IntegrationLimitsIllDefined),
+
+    ///convenience wrapper for a double integral of a single variable function
+    fn get_double(
+        &self,
+        func: &Polynomial<1>,
+        integration_limit: &[[f64; 2]; 2],
+    ) -> Result<f64, &'static str> {
+        return self.get(2, func, integration_limit);
     }
 }
 
@@ -123,10 +133,10 @@ pub trait IntegratorMultiVariable {
     >(
         &self,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &F,
-        integration_limits: &[[Self::Scalar; 2]; NUM_INTEGRATIONS],
-        point: &[Self::Scalar; NUM_VARS],
-    ) -> Result<Self::Scalar, CalcError>;
+        func: &Polynomial<NUM_VARS>,
+        integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, &'static str>;
 
     /// Convenience wrapper for a single partial integral of a multi variable function.
     fn get_single_partial<
@@ -134,7 +144,7 @@ pub trait IntegratorMultiVariable {
         const NUM_VARS: usize,
     >(
         &self,
-        func: &F,
+        func: &Polynomial<NUM_VARS>,
         idx_to_integrate: usize,
         integration_limits: &[Self::Scalar; 2],
         point: &[Self::Scalar; NUM_VARS],
@@ -148,7 +158,7 @@ pub trait IntegratorMultiVariable {
         const NUM_VARS: usize,
     >(
         &self,
-        func: &F,
+        func: &Polynomial<NUM_VARS>,
         idx_to_integrate: [usize; 2],
         integration_limits: &[[Self::Scalar; 2]; 2],
         point: &[Self::Scalar; NUM_VARS],

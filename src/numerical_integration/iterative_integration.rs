@@ -5,9 +5,9 @@ use crate::numerical_integration::integrator::*;
 use crate::numerical_integration::mode::IterativeMethod;
 use crate::utils::error_codes::CalcError;
 
-/// Default interval count. A multiple of 12 so Boole (needs a multiple of 4) and
-/// Simpson 3/8 (needs a multiple of 3) both align with the composite-rule weights.
-pub const DEFAULT_TOTAL_ITERATIONS: u64 = 120;
+use const_poly::Polynomial;
+
+pub const DEFAULT_TOTAL_ITERATIONS: u64 = 100;
 
 /// Configuration shared by the single- and multi-variable iterative integrators.
 #[derive(Debug, Clone, Copy)]
@@ -52,7 +52,181 @@ impl IterativeConfig {
             classify(limit)?;
         }
 
-        Ok(())
+        if NUM_INTEGRATIONS != number_of_integrations {
+            return Err(INCORRECT_NUMBER_OF_INTEGRATION_LIMITS);
+        }
+
+        return Ok(());
+    }
+
+    ///returns the numerical integration via Booles' method
+    ///number_of_integrations: number of times the equation needs to be integrated
+    /// func: The function to integrate
+    /// integration_limit: the integration bound(s) for each round of integration
+    fn get_booles<const NUM_INTEGRATIONS: usize>(
+        &self,
+        number_of_integrations: usize,
+        func: &Polynomial<1>,
+        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
+    ) -> f64 {
+        if number_of_integrations == 1 {
+            let mut current_point = integration_limit[0][0];
+
+            let mut ans = 7.0 * func.evaluate_scalar(current_point);
+            let delta = (integration_limit[0][1] - integration_limit[0][0])
+                / (self.total_iterations as f64);
+
+            let mut multiplier = 32.0;
+
+            for iter in 0..self.total_iterations - 1 {
+                current_point +=  delta;
+                ans = ans + multiplier * func.evaluate_scalar(current_point);
+
+                if (iter + 2) % 2 != 0 {
+                    multiplier = 32.0;
+                } else if (iter + 2) % 4 == 0 {
+                    multiplier = 14.0;
+                } else {
+                    multiplier = 12.0;
+                }
+            }
+
+            current_point = integration_limit[0][1];
+
+            ans = ans + 7.0 * func.evaluate_scalar(current_point);
+
+            return 2.0 * delta * ans / 45.0;
+        }
+
+        let mut ans = 7.0 * self.get_booles(number_of_integrations - 1, func, integration_limit);
+        let delta = (integration_limit[number_of_integrations - 1][1]
+            - integration_limit[number_of_integrations - 1][0])
+            / (self.total_iterations as f64);
+
+        let mut multiplier = 32.0;
+
+        for iter in 0..self.total_iterations - 1 {
+            ans = ans
+                + multiplier * self.get_booles(number_of_integrations - 1, func, integration_limit);
+
+            if (iter + 2) % 2 != 0 {
+                multiplier = 32.0;
+            } else if (iter + 2) % 4 == 0 {
+                multiplier = 14.0;
+            } else {
+                multiplier = 12.0
+            }
+        }
+
+        ans = ans + 7.0 * self.get_booles(number_of_integrations - 1, func, integration_limit);
+
+        return 2.0 * delta * ans / 45.0;
+    }
+
+    ///returns the numerical integration via Simsons 3/8th method
+    ///number_of_integrations: number of times the equation needs to be integrated
+    /// func: The function to integrate
+    /// integration_limit: the integration bound(s) for each round of integration
+    fn get_simpsons<const NUM_INTEGRATIONS: usize>(
+        &self,
+        number_of_integrations: usize,
+        func: &Polynomial<1>,
+        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
+    ) -> f64 {
+        if number_of_integrations == 1 {
+            let mut current_point = integration_limit[0][0];
+
+            let mut ans = func.evaluate_scalar(current_point);
+            let delta = (integration_limit[0][1] - integration_limit[0][0])
+                / (self.total_iterations as f64);
+
+            let mut multiplier = 3.0;
+
+            for iter in 0..self.total_iterations - 1 {
+                current_point += delta;
+
+                ans = ans + multiplier * func.evaluate_scalar(current_point);
+
+                if (iter + 2) % 3 == 0 {
+                    multiplier = 2.0;
+                } else {
+                    multiplier = 3.0;
+                }
+            }
+
+            current_point = integration_limit[0][1];
+
+            ans = ans + func.evaluate_scalar(current_point);
+
+            return 3.0 * delta * ans / 8.0;
+        }
+
+        let mut ans = self.get_simpsons(number_of_integrations - 1, func, integration_limit);
+        let delta = (integration_limit[number_of_integrations - 1][1]
+            - integration_limit[number_of_integrations - 1][0])
+            / (self.total_iterations as f64);
+
+        let mut multiplier = 3.0;
+
+        for iter in 0..self.total_iterations - 1 {
+            ans = ans
+                + multiplier
+                    * self.get_simpsons(number_of_integrations - 1, func, integration_limit);
+
+            if (iter + 2) % 3 == 0 {
+                multiplier = 2.0;
+            } else {
+                multiplier = 3.0;
+            }
+        }
+
+        ans = ans + self.get_simpsons(number_of_integrations - 1, func, integration_limit);
+
+        return 3.0 * delta * ans / 8.0;
+    }
+
+    ///returns the numerical integration via Trapezoidal method
+    ///number_of_integrations: number of times the equation needs to be integrated
+    /// func: The function to integrate
+    /// integration_limit: the integration bound(s) for each round of integration
+    fn get_trapezoidal<const NUM_INTEGRATIONS: usize>(
+        &self,
+        number_of_integrations: usize,
+        func: &Polynomial<1>,
+        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
+    ) -> f64 {
+        if number_of_integrations == 1 {
+            let mut current_point = integration_limit[0][0];
+
+            let mut ans = func.evaluate_scalar(current_point);
+            let delta = (integration_limit[0][1] - integration_limit[0][0])
+                / (self.total_iterations as f64);
+
+            for _ in 0..self.total_iterations - 1 {
+                current_point += delta;
+                ans = ans + 2.0 * func.evaluate_scalar(current_point);
+            }
+
+            current_point = integration_limit[0][1];
+
+            ans = ans + func.evaluate_scalar(current_point);
+
+            return 0.5 * delta * ans;
+        }
+
+        let mut ans = self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
+        let delta = (integration_limit[number_of_integrations - 1][1]
+            - integration_limit[number_of_integrations - 1][0])
+            / (self.total_iterations as f64);
+
+        for _ in 0..self.total_iterations - 1 {
+            ans = ans
+                + 2.0 * self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
+        }
+
+        ans = ans + self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
+
+        return 0.5 * delta * ans;
     }
 }
 
@@ -232,31 +406,47 @@ impl<T: Numeric> IntegratorSingleVariable for IterativeSingle<T> {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
-    /// use multicalc::numerical_integration::iterative_integration::IterativeSingle;
+    /// use const_poly::VarFunction::*;
+    /// use const_poly::{Polynomial, const_poly};
+    ///
+    /// const FUNC: Polynomial<1> = const_poly!([2.0, Identity]);
     ///
     /// let my_func = |x: f64| 2.0 * x;
     /// let integrator = IterativeSingle::default();
     ///
-    /// // single integration of 2x over [0, 2] is 4
-    /// let val = integrator.get(&my_func, &[[0.0, 2.0]; 1]).unwrap();
+    /// let integrator = iterative_integration::SingleVariableSolver::default();  
+    ///
+    /// let integration_limit = [[0.0, 2.0]; 1]; //desired integration limit
+    /// let val = integrator.get(1, &FUNC, &integration_limit).unwrap(); //single integration
     /// assert!(f64::abs(val - 4.0) < 1e-6);
     ///
-    /// // double integration over [0, 2] then [-1, 1] is 8
-    /// let val = integrator.get(&my_func, &[[0.0, 2.0], [-1.0, 1.0]]).unwrap();
+    /// let integration_limit = [[0.0, 2.0], [-1.0, 1.0]]; //desired integration limits
+    /// let val = integrator.get(2, &FUNC, &integration_limit).unwrap(); //double integration
     /// assert!(f64::abs(val - 8.0) < 1e-6);
     ///
-    /// // an infinite limit, for a decaying integrand: integral of e^(-x^2) over the real line is sqrt(pi)
-    /// let val = integrator.get(&|x| (-x * x).exp(), &[[f64::NEG_INFINITY, f64::INFINITY]]).unwrap();
-    /// assert!(f64::abs(val - std::f64::consts::PI.sqrt()) < 1e-6);
-    /// ```
-    fn get<F: Fn(T) -> T, const NUM_INTEGRATIONS: usize>(
+    /// let integration_limit = [[0.0, 2.0], [0.0, 2.0], [0.0, 2.0]]; //desired integration limits
+    /// let val = integrator.get(3, &FUNC, &integration_limit).unwrap(); //triple integration
+    /// assert!(f64::abs(val - 16.0) < 1e-6);
+    ///```
+    fn get<const NUM_INTEGRATIONS: usize>(
         &self,
-        func: &F,
-        integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
-    ) -> Result<T, CalcError> {
-        self.config.check_for_errors(integration_limit)?;
-        Ok(self.integrate(NUM_INTEGRATIONS, func, integration_limit))
+        number_of_integrations: usize,
+        func: &Polynomial<1>,
+        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
+    ) -> Result<f64, &'static str> {
+        self.check_for_errors(number_of_integrations, integration_limit)?;
+
+        match self.integration_method {
+            IterativeMethod::Booles => {
+                return Ok(self.get_booles(number_of_integrations, func, integration_limit))
+            }
+            IterativeMethod::Simpsons => {
+                return Ok(self.get_simpsons(number_of_integrations, func, integration_limit))
+            }
+            IterativeMethod::Trapezoidal => {
+                return Ok(self.get_trapezoidal(number_of_integrations, func, integration_limit))
+            }
+        }
     }
 }
 
@@ -299,35 +489,38 @@ impl<T: Numeric> IterativeMulti<T> {
         &self,
         level: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &F,
-        integration_limits: &[[T; 2]; NUM_INTEGRATIONS],
-        point: &[T; NUM_VARS],
-    ) -> T {
-        let method = self.config.integration_method;
-        let iterations = self.config.total_iterations;
+        func: &Polynomial<NUM_VARS>,
+        integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
+        point: &[f64; NUM_VARS],
+    ) -> f64 {
+        if number_of_integrations == 1 {
+            let mut current_vec = *point;
+            current_vec[idx_to_integrate[0]] = integration_limits[0][0];
 
-        let domain = match classify(&integration_limits[level - 1]) {
-            Ok(d) => d,
-            Err(_) => return T::NAN, // limits validated in check_for_errors; unreachable
-        };
-        let var = idx_to_integrate[level - 1];
+            let mut ans = 7.0 * func.evaluate(&current_vec);
+            let delta = (integration_limits[0][1] - integration_limits[0][0])
+                / (self.total_iterations as f64);
 
-        if level == 1 {
-            let mut current = *point;
-            return match domain {
-                Domain::Finite(a, b) => integrate_rule(method, iterations, a, b, |x| {
-                    current[var] = x;
-                    func(&current)
-                }),
-                _ => {
-                    let (lo, hi) = t_bounds(&domain);
-                    integrate_rule(method, iterations, lo, hi, |t| {
-                        let (x, jacobian) = map_sample(&domain, t);
-                        current[var] = x;
-                        func(&current) * jacobian
-                    })
+            let mut multiplier = 32.0;
+
+            for iter in 0..self.total_iterations - 1 {
+                current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
+                ans = ans + multiplier * func.evaluate(&current_vec);
+
+                if (iter + 2) % 2 != 0 {
+                    multiplier = 32.0;
+                } else if (iter + 2) % 4 == 0 {
+                    multiplier = 14.0;
+                } else {
+                    multiplier = 12.0;
                 }
-            };
+            }
+
+            current_vec[idx_to_integrate[0]] = integration_limits[0][1];
+
+            ans = ans + 7.0 * func.evaluate(&current_vec);
+
+            return 2.0 * delta * ans / 45.0;
         }
 
         let mut current = *point;
@@ -339,16 +532,78 @@ impl<T: Numeric> IterativeMulti<T> {
                     idx_to_integrate,
                     func,
                     integration_limits,
-                    &current,
-                )
-            }),
-            _ => {
-                let (lo, hi) = t_bounds(&domain);
-                integrate_rule(method, iterations, lo, hi, |t| {
-                    let (x, jacobian) = map_sample(&domain, t);
-                    current[var] = x;
-                    let inner = self.integrate(
-                        level - 1,
+                    &current_vec,
+                );
+
+        return 2.0 * delta * ans / 45.0;
+    }
+
+    ///returns the numerical integration via Simsons' 3/8th method
+    ///number_of_integrations: number of times the equation needs to be integrated
+    /// idx_to_integrate: the variables' index/indices that needs to be integrated
+    /// func: The function to integrate
+    /// integration_limit: the integration bound(s) for each round of integration
+    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
+    fn get_simpsons<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
+        &self,
+        number_of_integrations: usize,
+        idx_to_integrate: [usize; NUM_INTEGRATIONS],
+        func: &Polynomial<NUM_VARS>,
+        integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
+        point: &[f64; NUM_VARS],
+    ) -> f64 {
+        if number_of_integrations == 1 {
+            let mut current_vec = *point;
+            current_vec[idx_to_integrate[0]] = integration_limits[0][0];
+
+            let mut ans = func.evaluate(&current_vec);
+            let delta = (integration_limits[0][1] - integration_limits[0][0])
+                / (self.total_iterations as f64);
+
+            let mut multiplier = 3.0;
+
+            for iter in 0..self.total_iterations - 1 {
+                current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
+                ans = ans + multiplier * func.evaluate(&current_vec);
+
+                if (iter + 2) % 3 == 0 {
+                    multiplier = 2.0;
+                } else {
+                    multiplier = 3.0;
+                }
+            }
+
+            current_vec[idx_to_integrate[0]] = integration_limits[0][1];
+
+            ans = ans + func.evaluate(&current_vec);
+
+            return 3.0 * delta * ans / 8.0;
+        }
+
+        let mut current_vec = *point;
+        current_vec[idx_to_integrate[number_of_integrations - 1]] =
+            integration_limits[number_of_integrations - 1][0];
+
+        let mut ans = self.get_simpsons(
+            number_of_integrations - 1,
+            idx_to_integrate,
+            func,
+            integration_limits,
+            &current_vec,
+        );
+        let delta = (integration_limits[number_of_integrations - 1][1]
+            - integration_limits[number_of_integrations - 1][0])
+            / (self.total_iterations as f64);
+
+        let mut multiplier = 3.0;
+
+        for iter in 0..self.total_iterations - 1 {
+            current_vec[idx_to_integrate[number_of_integrations - 1]] =
+                current_vec[idx_to_integrate[number_of_integrations - 1]] + delta;
+            ans = ans
+                + multiplier
+                    * self.get_simpsons(
+                        number_of_integrations - 1,
                         idx_to_integrate,
                         func,
                         integration_limits,
@@ -358,6 +613,98 @@ impl<T: Numeric> IterativeMulti<T> {
                 })
             }
         }
+
+        current_vec[idx_to_integrate[number_of_integrations - 1]] =
+            integration_limits[number_of_integrations - 1][1];
+
+        ans = ans
+            + self.get_simpsons(
+                number_of_integrations - 1,
+                idx_to_integrate,
+                func,
+                integration_limits,
+                &current_vec,
+            );
+
+        return 3.0 * delta * ans / 8.0;
+    }
+
+    ///returns the numerical integration via Trapezoidal method
+    /// number_of_integrations: number of times the equation needs to be integrated
+    /// idx_to_integrate: the variables' index/indices that needs to be integrated
+    /// func: The function to integrate
+    /// integration_limit: the integration bound(s) for each round of integration
+    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
+    fn get_trapezoidal<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
+        &self,
+        number_of_integrations: usize,
+        idx_to_integrate: [usize; NUM_INTEGRATIONS],
+        func: &Polynomial<NUM_VARS>,
+        integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
+        point: &[f64; NUM_VARS],
+    ) -> f64 {
+        if number_of_integrations == 1 {
+            let mut current_vec = *point;
+            current_vec[idx_to_integrate[0]] = integration_limits[0][0];
+
+            let mut ans = func.evaluate(&current_vec);
+            let delta = (integration_limits[0][1] - integration_limits[0][0])
+                / (self.total_iterations as f64);
+
+            for _ in 0..self.total_iterations - 1 {
+                current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
+                ans = ans + 2.0 * func.evaluate(&current_vec);
+            }
+
+            current_vec[idx_to_integrate[0]] = integration_limits[0][1];
+
+            ans = ans + func.evaluate(&current_vec);
+
+            return 0.5 * delta * ans;
+        }
+
+        let mut current_vec = *point;
+        current_vec[idx_to_integrate[number_of_integrations - 1]] =
+            integration_limits[number_of_integrations - 1][0];
+
+        let mut ans = self.get_trapezoidal(
+            number_of_integrations - 1,
+            idx_to_integrate,
+            func,
+            integration_limits,
+            &current_vec,
+        );
+        let delta = (integration_limits[number_of_integrations - 1][1]
+            - integration_limits[number_of_integrations - 1][0])
+            / (self.total_iterations as f64);
+
+        for _ in 0..self.total_iterations - 1 {
+            current_vec[idx_to_integrate[number_of_integrations - 1]] =
+                current_vec[idx_to_integrate[number_of_integrations - 1]] + delta;
+            ans = ans
+                + 2.0
+                    * self.get_trapezoidal(
+                        number_of_integrations - 1,
+                        idx_to_integrate,
+                        func,
+                        integration_limits,
+                        &current_vec,
+                    );
+        }
+
+        current_vec[idx_to_integrate[number_of_integrations - 1]] =
+            integration_limits[number_of_integrations - 1][1];
+
+        ans = ans
+            + self.get_trapezoidal(
+                number_of_integrations - 1,
+                idx_to_integrate,
+                func,
+                integration_limits,
+                &current_vec,
+            );
+
+        return 0.5 * delta * ans;
     }
 }
 
@@ -380,31 +727,62 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
     ///
     /// # Examples
     /// ```
-    /// use multicalc::numerical_integration::integrator::IntegratorMultiVariable;
-    /// use multicalc::numerical_integration::iterative_integration::IterativeMulti;
+    /// use const_poly::VarFunction::*;
+    /// use const_poly::{Polynomial, const_poly};
+    /// 
     ///
-    /// // f(x, y, z) = 2x + yz, integrated over x in [0, 1] with (y, z) = (2, 3); result is 7
-    /// let func = |args: &[f64; 3]| 2.0 * args[0] + args[1] * args[2];
+    /// const FUNC: Polynomial<3> = const_poly!({[2.0, Identity,  Pow(0),  Pow(0)],
+    ///                                          [1.0, Pow(0),    Identity,  Identity]});
+    /// 
     /// let point = [1.0, 2.0, 3.0];
     /// let integrator = IterativeMulti::default();
     ///
-    /// let val = integrator.get([0; 1], &func, &[[0.0, 1.0]; 1], &point).unwrap();
+    /// use crate::multicalc::numerical_integration::integrator::*;
+    /// use multicalc::numerical_integration::iterative_integration;
+    ///
+    /// let integrator = iterative_integration::MultiVariableSolver::default();
+    ///
+    /// let integration_limit = [[0.0, 1.0]; 1]; //desired integation limit
+    /// let val = integrator.get(1, [0; 1], &FUNC, &integration_limit, &point).unwrap();
     /// assert!(f64::abs(val - 7.0) < 1e-6);
     /// ```
     fn get<F: Fn(&[T; NUM_VARS]) -> T, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &F,
-        integration_limits: &[[T; 2]; NUM_INTEGRATIONS],
-        point: &[T; NUM_VARS],
-    ) -> Result<T, CalcError> {
-        self.config.check_for_errors(integration_limits)?;
-        Ok(self.integrate(
-            NUM_INTEGRATIONS,
-            idx_to_integrate,
-            func,
-            integration_limits,
-            point,
-        ))
+        func: &Polynomial<NUM_VARS>,
+        integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, &'static str> {
+        self.check_for_errors(number_of_integrations, integration_limits)?;
+
+        match self.integration_method {
+            IterativeMethod::Booles => {
+                return Ok(self.get_booles(
+                    number_of_integrations,
+                    idx_to_integrate,
+                    func,
+                    integration_limits,
+                    point,
+                ))
+            }
+            IterativeMethod::Simpsons => {
+                return Ok(self.get_simpsons(
+                    number_of_integrations,
+                    idx_to_integrate,
+                    func,
+                    integration_limits,
+                    point,
+                ))
+            }
+            IterativeMethod::Trapezoidal => {
+                return Ok(self.get_trapezoidal(
+                    number_of_integrations,
+                    idx_to_integrate,
+                    func,
+                    integration_limits,
+                    point,
+                ))
+            }
+        }
     }
 }
