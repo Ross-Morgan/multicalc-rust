@@ -5,6 +5,7 @@ use crate::utils::error_codes::CalcError;
 use crate::vector_field::line_integral;
 use const_poly::Polynomial;
 use crate::vector_field::line_integral;
+use num_complex::ComplexFloat;
 
 /// Computes the flux integral of a 2D vector field across a parametrized curve.
 ///

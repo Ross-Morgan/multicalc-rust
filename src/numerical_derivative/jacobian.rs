@@ -97,11 +97,9 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
                     .derivator
                     .get_single_partial(func, col_index, vector_of_points)?;
             }
-
-            row_index += 1;
         }
 
-        Ok(result)
+        return Ok(result);
     }
 
     /// Same as [`Jacobian::get`] but returns a heap-allocated `Vec<Vec<_>>`, which avoids a
