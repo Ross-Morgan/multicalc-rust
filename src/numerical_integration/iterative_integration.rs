@@ -5,8 +5,6 @@ use crate::numerical_integration::integrator::*;
 use crate::numerical_integration::mode::IterativeMethod;
 use crate::utils::error_codes::CalcError;
 
-use const_poly::Polynomial;
-
 pub const DEFAULT_TOTAL_ITERATIONS: u64 = 100;
 
 /// Configuration shared by the single- and multi-variable iterative integrators.
@@ -66,21 +64,21 @@ impl IterativeConfig {
     fn get_booles<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
-        func: &Polynomial<1>,
+        func: &dyn Fn(f64) -> f64,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> f64 {
         if number_of_integrations == 1 {
             let mut current_point = integration_limit[0][0];
 
-            let mut ans = 7.0 * func.evaluate_scalar(current_point);
+            let mut ans = 7.0 * func(current_point);
             let delta = (integration_limit[0][1] - integration_limit[0][0])
                 / (self.total_iterations as f64);
 
             let mut multiplier = 32.0;
 
             for iter in 0..self.total_iterations - 1 {
-                current_point +=  delta;
-                ans = ans + multiplier * func.evaluate_scalar(current_point);
+                current_point = current_point + delta;
+                ans = ans + multiplier * func(current_point);
 
                 if (iter + 2) % 2 != 0 {
                     multiplier = 32.0;
@@ -93,10 +91,12 @@ impl IterativeConfig {
 
             current_point = integration_limit[0][1];
 
-            ans = ans + 7.0 * func.evaluate_scalar(current_point);
+            ans = ans + 7.0 * func(current_point);
 
             return 2.0 * delta * ans / 45.0;
         }
+
+        let mut current_point = integration_limit[number_of_integrations - 1][0];
 
         let mut ans = 7.0 * self.get_booles(number_of_integrations - 1, func, integration_limit);
         let delta = (integration_limit[number_of_integrations - 1][1]
@@ -106,6 +106,7 @@ impl IterativeConfig {
         let mut multiplier = 32.0;
 
         for iter in 0..self.total_iterations - 1 {
+            current_point = current_point + delta;
             ans = ans
                 + multiplier * self.get_booles(number_of_integrations - 1, func, integration_limit);
 
@@ -117,6 +118,8 @@ impl IterativeConfig {
                 multiplier = 12.0
             }
         }
+
+        //current_point = integration_limit[1];
 
         ans = ans + 7.0 * self.get_booles(number_of_integrations - 1, func, integration_limit);
 
@@ -130,22 +133,21 @@ impl IterativeConfig {
     fn get_simpsons<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
-        func: &Polynomial<1>,
+        func: &dyn Fn(f64) -> f64,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> f64 {
         if number_of_integrations == 1 {
             let mut current_point = integration_limit[0][0];
 
-            let mut ans = func.evaluate_scalar(current_point);
+            let mut ans = func(current_point);
             let delta = (integration_limit[0][1] - integration_limit[0][0])
                 / (self.total_iterations as f64);
 
             let mut multiplier = 3.0;
 
             for iter in 0..self.total_iterations - 1 {
-                current_point += delta;
-
-                ans = ans + multiplier * func.evaluate_scalar(current_point);
+                current_point = current_point + delta;
+                ans = ans + multiplier * func(current_point);
 
                 if (iter + 2) % 3 == 0 {
                     multiplier = 2.0;
@@ -156,10 +158,12 @@ impl IterativeConfig {
 
             current_point = integration_limit[0][1];
 
-            ans = ans + func.evaluate_scalar(current_point);
+            ans = ans + func(current_point);
 
             return 3.0 * delta * ans / 8.0;
         }
+
+        let mut current_point = integration_limit[number_of_integrations - 1][0];
 
         let mut ans = self.get_simpsons(number_of_integrations - 1, func, integration_limit);
         let delta = (integration_limit[number_of_integrations - 1][1]
@@ -169,6 +173,7 @@ impl IterativeConfig {
         let mut multiplier = 3.0;
 
         for iter in 0..self.total_iterations - 1 {
+            current_point = current_point + delta;
             ans = ans
                 + multiplier
                     * self.get_simpsons(number_of_integrations - 1, func, integration_limit);
@@ -179,6 +184,8 @@ impl IterativeConfig {
                 multiplier = 3.0;
             }
         }
+
+        //current_point = integration_limit[1];
 
         ans = ans + self.get_simpsons(number_of_integrations - 1, func, integration_limit);
 
@@ -192,27 +199,29 @@ impl IterativeConfig {
     fn get_trapezoidal<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
-        func: &Polynomial<1>,
+        func: &dyn Fn(f64) -> f64,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> f64 {
         if number_of_integrations == 1 {
             let mut current_point = integration_limit[0][0];
 
-            let mut ans = func.evaluate_scalar(current_point);
+            let mut ans = func(current_point);
             let delta = (integration_limit[0][1] - integration_limit[0][0])
                 / (self.total_iterations as f64);
 
             for _ in 0..self.total_iterations - 1 {
-                current_point += delta;
-                ans = ans + 2.0 * func.evaluate_scalar(current_point);
+                current_point = current_point + delta;
+                ans = ans + 2.0 * func(current_point);
             }
 
             current_point = integration_limit[0][1];
 
-            ans = ans + func.evaluate_scalar(current_point);
+            ans = ans + func(current_point);
 
             return 0.5 * delta * ans;
         }
+
+        let mut current_point = integration_limit[number_of_integrations - 1][0];
 
         let mut ans = self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
         let delta = (integration_limit[number_of_integrations - 1][1]
@@ -220,9 +229,12 @@ impl IterativeConfig {
             / (self.total_iterations as f64);
 
         for _ in 0..self.total_iterations - 1 {
+            current_point = current_point + delta;
             ans = ans
                 + 2.0 * self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
         }
+
+        //current_point = integration_limit[1];
 
         ans = ans + self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
 
@@ -406,10 +418,10 @@ impl<T: Numeric> IntegratorSingleVariable for IterativeSingle<T> {
     ///
     /// # Examples
     /// ```
-    /// use const_poly::VarFunction::*;
-    /// use const_poly::{Polynomial, const_poly};
-    ///
-    /// const FUNC: Polynomial<1> = const_poly!([2.0, Identity]);
+    ///    let my_func = | arg: f64 | -> f64
+    ///    {
+    ///        return 2.0*arg;
+    ///    };
     ///
     /// let my_func = |x: f64| 2.0 * x;
     /// let integrator = IterativeSingle::default();
@@ -417,21 +429,21 @@ impl<T: Numeric> IntegratorSingleVariable for IterativeSingle<T> {
     /// let integrator = iterative_integration::SingleVariableSolver::default();  
     ///
     /// let integration_limit = [[0.0, 2.0]; 1]; //desired integration limit
-    /// let val = integrator.get(1, &FUNC, &integration_limit).unwrap(); //single integration
+    /// let val = integrator.get(1, &my_func, &integration_limit).unwrap(); //single integration
     /// assert!(f64::abs(val - 4.0) < 1e-6);
     ///
     /// let integration_limit = [[0.0, 2.0], [-1.0, 1.0]]; //desired integration limits
-    /// let val = integrator.get(2, &FUNC, &integration_limit).unwrap(); //double integration
+    /// let val = integrator.get(2, &my_func, &integration_limit).unwrap(); //double integration
     /// assert!(f64::abs(val - 8.0) < 1e-6);
     ///
     /// let integration_limit = [[0.0, 2.0], [0.0, 2.0], [0.0, 2.0]]; //desired integration limits
-    /// let val = integrator.get(3, &FUNC, &integration_limit).unwrap(); //triple integration
+    /// let val = integrator.get(3, &my_func, &integration_limit).unwrap(); //triple integration
     /// assert!(f64::abs(val - 16.0) < 1e-6);
     ///```
     fn get<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
-        func: &Polynomial<1>,
+        func: &dyn Fn(f64) -> f64,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> Result<f64, &'static str> {
         self.check_for_errors(number_of_integrations, integration_limit)?;
@@ -489,7 +501,7 @@ impl<T: Numeric> IterativeMulti<T> {
         &self,
         level: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &Polynomial<NUM_VARS>,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> f64 {
@@ -497,7 +509,7 @@ impl<T: Numeric> IterativeMulti<T> {
             let mut current_vec = *point;
             current_vec[idx_to_integrate[0]] = integration_limits[0][0];
 
-            let mut ans = 7.0 * func.evaluate(&current_vec);
+            let mut ans = 7.0 * func(&current_vec);
             let delta = (integration_limits[0][1] - integration_limits[0][0])
                 / (self.total_iterations as f64);
 
@@ -505,7 +517,7 @@ impl<T: Numeric> IterativeMulti<T> {
 
             for iter in 0..self.total_iterations - 1 {
                 current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
-                ans = ans + multiplier * func.evaluate(&current_vec);
+                ans = ans + multiplier * func(&current_vec);
 
                 if (iter + 2) % 2 != 0 {
                     multiplier = 32.0;
@@ -518,7 +530,7 @@ impl<T: Numeric> IterativeMulti<T> {
 
             current_vec[idx_to_integrate[0]] = integration_limits[0][1];
 
-            ans = ans + 7.0 * func.evaluate(&current_vec);
+            ans = ans + 7.0 * func(&current_vec);
 
             return 2.0 * delta * ans / 45.0;
         }
@@ -548,7 +560,7 @@ impl<T: Numeric> IterativeMulti<T> {
         &self,
         number_of_integrations: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &Polynomial<NUM_VARS>,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> f64 {
@@ -556,7 +568,7 @@ impl<T: Numeric> IterativeMulti<T> {
             let mut current_vec = *point;
             current_vec[idx_to_integrate[0]] = integration_limits[0][0];
 
-            let mut ans = func.evaluate(&current_vec);
+            let mut ans = func(&current_vec);
             let delta = (integration_limits[0][1] - integration_limits[0][0])
                 / (self.total_iterations as f64);
 
@@ -564,7 +576,7 @@ impl<T: Numeric> IterativeMulti<T> {
 
             for iter in 0..self.total_iterations - 1 {
                 current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
-                ans = ans + multiplier * func.evaluate(&current_vec);
+                ans = ans + multiplier * func(&current_vec);
 
                 if (iter + 2) % 3 == 0 {
                     multiplier = 2.0;
@@ -575,7 +587,7 @@ impl<T: Numeric> IterativeMulti<T> {
 
             current_vec[idx_to_integrate[0]] = integration_limits[0][1];
 
-            ans = ans + func.evaluate(&current_vec);
+            ans = ans + func(&current_vec);
 
             return 3.0 * delta * ans / 8.0;
         }
@@ -639,7 +651,7 @@ impl<T: Numeric> IterativeMulti<T> {
         &self,
         number_of_integrations: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &Polynomial<NUM_VARS>,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> f64 {
@@ -647,18 +659,18 @@ impl<T: Numeric> IterativeMulti<T> {
             let mut current_vec = *point;
             current_vec[idx_to_integrate[0]] = integration_limits[0][0];
 
-            let mut ans = func.evaluate(&current_vec);
+            let mut ans = func(&current_vec);
             let delta = (integration_limits[0][1] - integration_limits[0][0])
                 / (self.total_iterations as f64);
 
             for _ in 0..self.total_iterations - 1 {
                 current_vec[idx_to_integrate[0]] = current_vec[idx_to_integrate[0]] + delta;
-                ans = ans + 2.0 * func.evaluate(&current_vec);
+                ans = ans + 2.0 * func(&current_vec);
             }
 
             current_vec[idx_to_integrate[0]] = integration_limits[0][1];
 
-            ans = ans + func.evaluate(&current_vec);
+            ans = ans + func(&current_vec);
 
             return 0.5 * delta * ans;
         }
@@ -727,13 +739,10 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
     ///
     /// # Examples
     /// ```
-    /// use const_poly::VarFunction::*;
-    /// use const_poly::{Polynomial, const_poly};
-    /// 
-    ///
-    /// const FUNC: Polynomial<3> = const_poly!({[2.0, Identity,  Pow(0),  Pow(0)],
-    ///                                          [1.0, Pow(0),    Identity,  Identity]});
-    /// 
+    /// let func = | args: &[f64; 3] | -> f64
+    ///{
+    ///    return 2.0*args[0] + args[1]*args[2];
+    ///};
     /// let point = [1.0, 2.0, 3.0];
     /// let integrator = IterativeMulti::default();
     ///
@@ -743,13 +752,13 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
     /// let integrator = iterative_integration::MultiVariableSolver::default();
     ///
     /// let integration_limit = [[0.0, 1.0]; 1]; //desired integation limit
-    /// let val = integrator.get(1, [0; 1], &FUNC, &integration_limit, &point).unwrap();
+    /// let val = integrator.get(1, [0; 1], &func, &integration_limit, &point).unwrap();
     /// assert!(f64::abs(val - 7.0) < 1e-6);
     /// ```
     fn get<F: Fn(&[T; NUM_VARS]) -> T, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &Polynomial<NUM_VARS>,
+        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> Result<f64, &'static str> {
