@@ -58,7 +58,6 @@ impl<T: Numeric> FiniteDifferenceConfig<T> {
         }
         Ok(())
     }
-}
 
 /// Finite-difference differentiator for single-variable functions.
 #[derive(Debug, Clone, Copy)]
@@ -225,7 +224,6 @@ impl<T: Numeric> FiniteDifferenceSingle<T> {
 
         (f1 - f0) / (2.0 * step_size)
     }
-}
 
 impl<T: Numeric> DerivatorSingleVariable for FiniteDifferenceSingle<T> {
     type Scalar = T;
@@ -285,6 +283,26 @@ impl<T: Numeric> Default for FiniteDifferenceMulti<T> {
         FiniteDifferenceMulti {
             config: FiniteDifferenceConfig::default(),
         }
+    }
+
+    /// Convenience wrapper for a single partial derivative of a multivariable function
+    pub const fn get_single_partial<const NUM_VARS: usize>(
+        &self,
+        func: &Polynomial<NUM_VARS>,
+        idx_to_derivate: usize,
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, &'static str> {
+        return self.get(1, func, &[idx_to_derivate], point);
+    }
+
+    /// Convenience wrapper for a double partial derivative of a multivariable function
+    pub const fn get_double_partial<const NUM_VARS: usize>(
+        &self,
+        func: &Polynomial<NUM_VARS>,
+        idx_to_derivate: &[usize; 2],
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, &'static str> {
+        return self.get(2, func, idx_to_derivate, point);
     }
 }
 

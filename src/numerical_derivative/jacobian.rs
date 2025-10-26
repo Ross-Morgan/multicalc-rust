@@ -97,6 +97,8 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
                     .derivator
                     .get_single_partial(func, col_index, vector_of_points)?;
             }
+
+            row_index += 1;
         }
 
         Ok(result)
