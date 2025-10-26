@@ -34,7 +34,8 @@ pub fn get_3d<const NUM_VARS: usize>(
     derivator: &MultiVariableSolver,
     vector_field: &[&Polynomial<NUM_VARS>; 3],
     point: &[f64; NUM_VARS],
-) -> Result<[f64; 3], &'static str> {
+) -> Result<[f64; 3], &'static str>
+{
     let mut ans = [0.0; 3];
 
     ans[0] = derivator.get_single_partial(&vector_field[2], 1, point)?
@@ -78,7 +79,8 @@ pub fn get_2d<const NUM_VARS: usize>(
     derivator: &MultiVariableSolver,
     vector_field: &[&Polynomial<NUM_VARS>; 2],
     point: &[f64; NUM_VARS],
-) -> Result<f64, &'static str> {
+) -> Result<f64, &'static str>
+{
     return Ok(derivator.get(1, vector_field[1], &[0], point)?
         - derivator.get(1, vector_field[0], &[1], point)?);
 }

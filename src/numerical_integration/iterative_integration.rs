@@ -79,7 +79,7 @@ impl IterativeConfig {
             let mut multiplier = 32.0;
 
             for iter in 0..self.total_iterations - 1 {
-                current_point += delta;
+                current_point +=  delta;
                 ans = ans + multiplier * func.evaluate_scalar(current_point);
 
                 if (iter + 2) % 2 != 0 {
@@ -729,11 +729,11 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
     /// ```
     /// use const_poly::VarFunction::*;
     /// use const_poly::{Polynomial, const_poly};
-    ///
+    /// 
     ///
     /// const FUNC: Polynomial<3> = const_poly!({[2.0, Identity,  Pow(0),  Pow(0)],
     ///                                          [1.0, Pow(0),    Identity,  Identity]});
-    ///
+    /// 
     /// let point = [1.0, 2.0, 3.0];
     /// let integrator = IterativeMulti::default();
     ///
