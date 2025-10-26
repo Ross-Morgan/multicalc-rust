@@ -1,7 +1,7 @@
 use crate::numerical_derivative::finite_difference::MultiVariableSolver;
-use const_poly::Polynomial;
 use crate::numerical_derivative::hessian::Hessian;
 use crate::utils::helper;
+use const_poly::Polynomial;
 
 #[derive(Debug)]
 pub struct QuadraticApproximationResult<const NUM_VARS: usize> {
@@ -85,17 +85,15 @@ impl<const NUM_VARS: usize> QuadraticApproximationResult<NUM_VARS> {
         for point in points.iter().take(NUM_POINTS) {
             let predicted_y = self.get_prediction_value(point);
 
-            r2_numerator = r2_numerator
-                + helper::powi(predicted_y - original_function.evaluate(point), 2);
+            r2_numerator =
+                r2_numerator + helper::powi(predicted_y - original_function.evaluate(point), 2);
             r2_denominator =
                 r2_numerator + helper::powi(mae - original_function.evaluate(point), 2);
         }
 
         let r2 = 1.0 - (r2_numerator / r2_denominator);
 
-        let r2_adj = 1.0
-            - (1.0 - r2) * ((NUM_POINTS as f64))
-                / ((NUM_POINTS as f64) - 2.0);
+        let r2_adj = 1.0 - (1.0 - r2) * (NUM_POINTS as f64) / ((NUM_POINTS as f64) - 2.0);
 
         return QuadraticApproximationPredictionMetrics {
             mean_absolute_error: mae.abs(),
@@ -120,8 +118,10 @@ impl Default for QuadraticApproximator {
 }
 
 impl QuadraticApproximator {
-
-    /// Builds a quadratic (second-order Taylor) approximation of `function` about `point`.
+    /// For an n-dimensional approximation, the equation is approximated as I + L + Q, where:
+    /// I = intercept
+    /// L = linear_coefficients[0]*var_1 + linear_coefficients[1]*var_2 + ... + linear_coefficients[n-1]*var_n
+    /// Q = quadratic_coefficients[0][0]*var_1*var_1 + quadratic_coefficients[0][1]*var_1*var_2 + ... + quadratic_coefficients[n-1][n-1]*var_n*var_n
     ///
     /// # Errors
     /// [`CalcError::StepSizeZero`] if the derivator's step size is zero.
@@ -170,8 +170,8 @@ impl QuadraticApproximator {
                 intercept_ = intercept_ + hessian_matrix[row][col] * point[row] * point[row];
 
                 if row == col {
-                    linear_coeffs_[row] = linear_coeffs_[row]
-                        - 2.0 * hessian_matrix[row][col] * point[row]
+                    linear_coeffs_[row] =
+                        linear_coeffs_[row] - 2.0 * hessian_matrix[row][col] * point[row]
                 } else {
                     linear_coeffs_[row] =
                         linear_coeffs_[row] - hessian_matrix[row][col] * point[col];
