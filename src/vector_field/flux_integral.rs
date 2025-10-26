@@ -2,13 +2,13 @@ use crate::numeric::Numeric;
 use crate::numerical_integration::iterative_integration::DEFAULT_TOTAL_ITERATIONS;
 
 use crate::vector_field::line_integral;
-use num_complex::ComplexFloat;
 
 /// Computes the flux integral of a 2D vector field across a parametrized curve.
 ///
-/// The curve is described by a parameter `t`: the transforms map `t` to each coordinate, and
-/// the field is sampled at the resulting curve position. Uses the default iteration count;
-/// see [`get_2d_custom`] to set it.
+/// NOTE: Returns a Result<f64, &'static str>
+/// Possible &'static str are:
+/// NumberOfStepsCannotBeZero -> if the number of steps argument is zero
+/// IntegrationLimitsIllDefined -> if the integration lower limit is not strictly lesser than the integration upper limit
 ///
 /// # Arguments
 /// * `vector_field` - the two field components, each taking the curve position `[x, y]`.
@@ -33,11 +33,11 @@ use num_complex::ComplexFloat;
 /// // the flux integral is 0
 /// assert!(f64::abs(val) < 0.01);
 /// ```
-pub fn get_2d<T: ComplexFloat>(
-    vector_field: &[&dyn Fn(&T, &T) -> T; 2],
-    transformations: &[&dyn Fn(&T) -> T; 2],
-    integration_limit: &[T; 2],
-) -> Result<T, &'static str> {
+pub fn get_2d(
+    vector_field: &[&dyn Fn(&f64, &f64) -> f64; 2],
+    transformations: &[&dyn Fn(&f64) -> f64; 2],
+    integration_limit: &[f64; 2],
+) -> Result<f64, &'static str> {
     return Ok(line_integral::get_partial_2d(
         vector_field,
         transformations,
@@ -46,12 +46,12 @@ pub fn get_2d<T: ComplexFloat>(
     )
 }
 
-pub fn get_2d_custom<T: ComplexFloat>(
-    vector_field: &[&dyn Fn(&T, &T) -> T; 2],
-    transformations: &[&dyn Fn(&T) -> T; 2],
-    integration_limit: &[T; 2],
+pub fn get_2d_custom(
+    vector_field: &[&dyn Fn(&f64, &f64) -> f64; 2],
+    transformations: &[&dyn Fn(&f64) -> f64; 2],
+    integration_limit: &[f64; 2],
     total_iterations: u64,
-) -> Result<T, &'static str> {
+) -> Result<f64, &'static str> {
     return Ok(line_integral::get_partial_2d(
         vector_field,
         transformations,

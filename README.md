@@ -222,6 +222,6 @@ multicalc is licensed under the MIT license.
 - [] Add infinite integration limits to iterative integration methods
 - [] Add finite integration limits to gauss-hermite
 - [] Add finite integration limits to gauss-laguerre
-- [] Add complex number support to integration modules
+- [] Add traits to cover all generic integral types - float or ints
 - [] Add ODE solver modules
 - [] Rework vector calculus module
