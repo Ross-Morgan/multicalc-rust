@@ -134,7 +134,10 @@ impl GaussianConfig {
                 )
                 .unwrap();
 
-                ans = ans + weight * func(abcsissa) * function_approximations::exp_approx(abcsissa * abcsissa);
+                ans = ans
+                    + weight
+                        * func(abcsissa)
+                        * function_approximations::exp_approx(abcsissa * abcsissa);
             }
 
             return ans;
@@ -179,7 +182,8 @@ impl GaussianConfig {
                 )
                 .unwrap();
 
-                ans = ans + (weight * func(abcsissa) * function_approximations::exp_approx(abcsissa));
+                ans =
+                    ans + (weight * func(abcsissa) * function_approximations::exp_approx(abcsissa));
             }
 
             return ans;

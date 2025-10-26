@@ -171,7 +171,7 @@ impl SingleVariableSolver {
         if order == 1 {
             let f0 = func(point - step_size);
             let f1 = func(point + step_size);
-            return (f1 - f0) / (2.0*step_size);
+            return (f1 - f0) / (2.0 * step_size);
         }
 
         let f0_point = point - step_size;
@@ -190,7 +190,7 @@ impl SingleVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        return (f1 - f0) / (2.0*step_size);
+        return (f1 - f0) / (2.0 * step_size);
     }
 }
 
@@ -344,10 +344,7 @@ impl MultiVariableSolver {
     ///computes f'(X) = (f(X + h) - f(X))/h, where h is the chosen step size
     /// you can control how many times to differentiate using the "order" parameter
     /// you can specify the variable(s) whose respect to the equation needs to be differentiated using the 'idx_to_derivate' parameter
-    fn get_forward_difference_multi_variable<
-        const NUM_VARS: usize,
-        const NUM_ORDER: usize,
-    >(
+    fn get_forward_difference_multi_variable<const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
         order: usize,
         func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
@@ -370,8 +367,7 @@ impl MultiVariableSolver {
         let f0_args = point;
 
         let mut f1_args = *point;
-        f1_args[idx_to_derivate[order - 1]] =
-            f1_args[idx_to_derivate[order - 1]] + step_size;
+        f1_args[idx_to_derivate[order - 1]] = f1_args[idx_to_derivate[order - 1]] + step_size;
 
         let f0 = self.get_forward_difference_multi_variable(
             order - 1,
@@ -395,10 +391,7 @@ impl MultiVariableSolver {
     ///computes f'(X) = (f(X) - f(X - h))/h, where h is the chosen step size
     /// you can control how many times to differentiate using the "order" parameter
     /// you can specify the variable(s) whose respect to the equation needs to be differentiated using the 'idx_to_derivate' parameter
-    fn get_backward_difference_multi_variable<
-        const NUM_VARS: usize,
-        const NUM_ORDER: usize,
-    >(
+    fn get_backward_difference_multi_variable<const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
         order: usize,
         func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
@@ -419,8 +412,7 @@ impl MultiVariableSolver {
         }
 
         let mut f0_args = *point;
-        f0_args[idx_to_derivate[order - 1]] =
-            f0_args[idx_to_derivate[order - 1]] - step_size;
+        f0_args[idx_to_derivate[order - 1]] = f0_args[idx_to_derivate[order - 1]] - step_size;
 
         let f1_args = point;
 
@@ -446,10 +438,7 @@ impl MultiVariableSolver {
     ///computes f'(X) = (f(X + h) - f(X - h))/2h, where h is the chosen step size
     /// you can control how many times to differentiate using the "order" parameter
     /// you can specify the variable(s) whose respect to the equation needs to be differentiated using the 'idx_to_derivate' parameter
-    fn get_central_difference_multi_variable<
-        const NUM_VARS: usize,
-        const NUM_ORDER: usize,
-    >(
+    fn get_central_difference_multi_variable<const NUM_VARS: usize, const NUM_ORDER: usize>(
         &self,
         order: usize,
         func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
@@ -467,12 +456,11 @@ impl MultiVariableSolver {
             let f0 = func(&f0_args);
             let f1 = func(&f1_args);
 
-            return (f1 - f0) / (2.0*step_size);
+            return (f1 - f0) / (2.0 * step_size);
         }
 
         let mut f0_point = *point;
-        f0_point[idx_to_derivate[order - 1]] =
-            f0_point[idx_to_derivate[order - 1]] - step_size;
+        f0_point[idx_to_derivate[order - 1]] = f0_point[idx_to_derivate[order - 1]] - step_size;
 
         let f0 = self.get_central_difference_multi_variable(
             order - 1,
@@ -483,8 +471,7 @@ impl MultiVariableSolver {
         );
 
         let mut f1_point = *point;
-        f1_point[idx_to_derivate[order - 1]] =
-            f1_point[idx_to_derivate[order - 1]] + step_size;
+        f1_point[idx_to_derivate[order - 1]] = f1_point[idx_to_derivate[order - 1]] + step_size;
 
         let f1 = self.get_central_difference_multi_variable(
             order - 1,
@@ -494,7 +481,7 @@ impl MultiVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        return (f1 - f0) / (2.0*step_size);
+        return (f1 - f0) / (2.0 * step_size);
     }
 }
 
@@ -543,7 +530,6 @@ impl DerivatorMultiVariable for MultiVariableSolver {
         idx_to_derivate: &[usize; NUM_ORDER],
         point: &[f64; NUM_VARS],
     ) -> Result<f64, &'static str> {
-        
         if self.step_size == 0.0 {
             return Err(NUMBER_OF_DERIVATIVE_STEPS_CANNOT_BE_ZERO);
         }
