@@ -6,7 +6,7 @@ use crate::numerical_integration::iterative_integration;
 use crate::utils::error_codes::*;
 
 use const_poly::VarFunction::*;
-use const_poly::{const_poly, Polynomial};
+use const_poly::{Polynomial, const_poly};
 
 #[test]
 fn test_booles_integration_1() {
@@ -716,7 +716,7 @@ fn test_error_checking_4() {
         31,
         GaussianQuadratureMethod::GaussLegendre,
     );
-
+    
     let result = integrator.get_single(&FUNC, &integration_limit);
     assert!(result.is_err());
     assert!(result.unwrap_err() == CalcError::QuadratureOrderOutOfRange);

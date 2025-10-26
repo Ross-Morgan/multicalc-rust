@@ -36,6 +36,7 @@ pub const fn powi(mut base: f64, exp: i32) -> f64 {
     if exp < 0 { 1.0 / result } else { result }
 }
 
+
 /// Approximates the square root of `x` using Newton-Raphson iteration.
 ///
 /// Returns NaN for negative inputs.
