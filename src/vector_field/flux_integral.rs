@@ -3,6 +3,7 @@ use crate::numerical_integration::iterative_integration::DEFAULT_TOTAL_ITERATION
 use crate::utils::error_codes::CalcError;
 
 use crate::vector_field::line_integral;
+use const_poly::Polynomial;
 
 /// Computes the flux integral of a 2D vector field across a parametrized curve.
 ///

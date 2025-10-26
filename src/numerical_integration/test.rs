@@ -6,7 +6,7 @@ use crate::numerical_integration::iterative_integration;
 use crate::utils::error_codes::*;
 
 use const_poly::VarFunction::*;
-use const_poly::{Polynomial, const_poly};
+use const_poly::{const_poly, Polynomial};
 
 #[test]
 fn test_booles_integration_1() {
