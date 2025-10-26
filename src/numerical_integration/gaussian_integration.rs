@@ -4,6 +4,7 @@ use crate::numerical_integration::mode::GaussianQuadratureMethod;
 use crate::utils::error_codes::*;
 
 use const_poly::Polynomial;
+use crate::utils::helper;
 
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
 
@@ -134,7 +135,7 @@ impl GaussianConfig {
                 )
                 .unwrap();
 
-                ans = ans + weight * func.evaluate_scalar(abcsissa) * f64::exp(abcsissa * abcsissa);
+                ans = ans + weight * func.evaluate_scalar(abcsissa) * helper::exp(abcsissa * abcsissa);
             }
 
             return ans;
@@ -179,7 +180,7 @@ impl GaussianConfig {
                 )
                 .unwrap();
 
-                ans = ans + (weight * func.evaluate_scalar(abcsissa) * f64::exp(abcsissa));
+                ans = ans + (weight * func.evaluate_scalar(abcsissa) * helper::exp(abcsissa));
             }
 
             return ans;

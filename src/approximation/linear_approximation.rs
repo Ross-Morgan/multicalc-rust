@@ -1,37 +1,28 @@
-use crate::numeric::Numeric;
-use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::utils::error_codes::CalcError;
+use crate::numerical_derivative::finite_difference::MultiVariableSolver;
+use const_poly::Polynomial;
+use crate::utils::helper;
 
-/// A first-order (linear) Taylor approximation of a function about a base point:
-/// `f(x) ≈ value + Σ gradient[i] * (x[i] - point[i])`.
-#[derive(Debug, Clone, Copy)]
-pub struct LinearApproximation<const NUM_VARS: usize, T = f64> {
-    point: [T; NUM_VARS],
-    value: T,
-    gradient: [T; NUM_VARS],
+#[derive(Debug)]
+pub struct LinearApproximationResult<const NUM_VARS: usize> {
+    pub intercept: f64,
+    pub coefficients: [f64; NUM_VARS],
 }
 
-/// Goodness-of-fit metrics for a [`LinearApproximation`] over a set of sample points.
-#[derive(Debug, Clone, Copy)]
-pub struct LinearApproximationPredictionMetrics<T = f64> {
-    /// Mean absolute error.
-    pub mean_absolute_error: T,
-    /// Mean squared error.
-    pub mean_squared_error: T,
-    /// Root mean squared error.
-    pub root_mean_squared_error: T,
-    /// Coefficient of determination; `NaN` when the truth is constant over the points.
-    pub r_squared: T,
-    /// R² adjusted for the number of predictors; `NaN` when there are too few points.
-    pub adjusted_r_squared: T,
+#[derive(Debug)]
+pub struct LinearApproximationPredictionMetrics {
+    pub mean_absolute_error: f64,
+    pub mean_squared_error: f64,
+    pub root_mean_squared_error: f64,
+    pub r_squared: f64,
+    pub adjusted_r_squared: f64,
 }
 
-impl<const NUM_VARS: usize, T: Numeric> LinearApproximation<NUM_VARS, T> {
-    /// Evaluates the approximation at `x`.
-    pub fn predict(&self, x: &[T; NUM_VARS]) -> T {
-        let mut result = self.value;
-        for ((&g, &xi), &pi) in self.gradient.iter().zip(x).zip(&self.point) {
-            result += g * (xi - pi);
+impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
+    ///Helper function if you don't care about the details and just want the predictor directly
+    pub fn get_prediction_value(&self, args: &[f64; NUM_VARS]) -> f64 {
+        let mut result = self.intercept;
+        for (iter, arg) in args.iter().enumerate().take(NUM_VARS) {
+            result = result + self.coefficients[iter] * *arg;
         }
         result
     }
@@ -62,19 +53,46 @@ impl<const NUM_VARS: usize, T: Numeric> LinearApproximation<NUM_VARS, T> {
     /// `adjusted_r_squared` is `NaN` when there are too few points.
     pub fn get_prediction_metrics<O: Fn(&[T; NUM_VARS]) -> T, const NUM_POINTS: usize>(
         &self,
-        points: &[[T; NUM_VARS]; NUM_POINTS],
-        original_function: &O,
-    ) -> LinearApproximationPredictionMetrics<T> {
-        let (mae, mse, rmse, r_squared, adjusted_r_squared) = crate::approximation::compute_metrics(
-            |x| self.predict(x),
-            points,
-            original_function,
-            NUM_VARS, // p = N linear coefficients
-        );
+        points: &[[f64; NUM_VARS]; NUM_POINTS],
+        original_function: &Polynomial<NUM_VARS>,
+    ) -> LinearApproximationPredictionMetrics {
+        //let num_points = NUM_POINTS as f64;
+        let mut mae = 0.0;
+        let mut mse = 0.0;
 
-        LinearApproximationPredictionMetrics {
-            mean_absolute_error: mae,
-            mean_squared_error: mse,
+        for point in points.iter().take(NUM_POINTS) {
+            let predicted_y = self.get_prediction_value(point);
+
+            mae = mae + (predicted_y - original_function.evaluate(point));
+            mse = mse + helper::powi(predicted_y - original_function.evaluate(point), 2);
+        }
+
+        mae = mae / (NUM_POINTS as f64);
+        mse = mse / (NUM_POINTS as f64);
+
+        let rmse = helper::sqrt(mse).abs();
+
+        let mut r2_numerator = 0.0;
+        let mut r2_denominator = 0.0;
+
+        for point in points.iter().take(NUM_POINTS) {
+            let predicted_y = self.get_prediction_value(point);
+
+            r2_numerator = r2_numerator
+                + helper::powi(predicted_y - original_function.evaluate(point), 2);
+            r2_denominator =
+                r2_numerator + helper::powi(mae - original_function.evaluate(point), 2);
+        }
+
+        let r2 = 1.0 - (r2_numerator / r2_denominator);
+
+        let r2_adj = 1.0
+            - (1.0 - r2) * ((NUM_POINTS as f64))
+                / ((NUM_POINTS as f64) - 2.0);
+
+        return LinearApproximationPredictionMetrics {
+            mean_absolute_error: mae.abs(),
+            mean_squared_error: mse.abs(),
             root_mean_squared_error: rmse,
             r_squared,
             adjusted_r_squared,
@@ -82,25 +100,19 @@ impl<const NUM_VARS: usize, T: Numeric> LinearApproximation<NUM_VARS, T> {
     }
 }
 
-/// Builds a [`LinearApproximation`] of a function, using any derivator that implements
-/// [`DerivatorMultiVariable`].
-pub struct LinearApproximator<D: DerivatorMultiVariable> {
-    derivator: D,
+pub struct LinearApproximator {
+    derivator: MultiVariableSolver,
 }
 
-impl<D: DerivatorMultiVariable + Default> Default for LinearApproximator<D> {
+impl Default for LinearApproximator {
     fn default() -> Self {
-        LinearApproximator {
-            derivator: D::default(),
+        Self {
+            derivator: MultiVariableSolver::default(),
         }
     }
 }
 
-impl<D: DerivatorMultiVariable> LinearApproximator<D> {
-    /// Builds an approximator from an explicit derivator.
-    pub fn from_derivator(derivator: D) -> Self {
-        LinearApproximator { derivator }
-    }
+impl LinearApproximator {
 
     /// Builds a linear (first-order Taylor) approximation of `function` about `point`.
     ///
@@ -122,19 +134,18 @@ impl<D: DerivatorMultiVariable> LinearApproximator<D> {
     /// let approximator = LinearApproximator::<FiniteDifferenceMulti>::default();
     /// let result = approximator.get(&function_to_approximate, &point).unwrap();
     ///
-    /// //the approximation is exact at the base point
-    /// assert!(f64::abs(function_to_approximate(&point) - result.predict(&point)) < 1e-9);
-    /// ```
-    pub fn get<F: Fn(&[D::Scalar; NUM_VARS]) -> D::Scalar, const NUM_VARS: usize>(
+    pub fn get<const NUM_VARS: usize>(
         &self,
-        function: &F,
-        point: &[D::Scalar; NUM_VARS],
-    ) -> Result<LinearApproximation<NUM_VARS, D::Scalar>, CalcError> {
-        let value = function(point);
+        function: &Polynomial<NUM_VARS>,
+        point: &[f64; NUM_VARS],
+    ) -> Result<LinearApproximationResult<NUM_VARS>, &'static str> {
+        let mut slopes_ = [0.0; NUM_VARS];
 
-        let mut gradient = [<D::Scalar as Numeric>::ZERO; NUM_VARS];
-        for (i, slot) in gradient.iter_mut().enumerate() {
-            *slot = self.derivator.get_single_partial(function, i, point)?;
+        let mut intercept_ = function.evaluate(point);
+
+        for iter in 0..NUM_VARS {
+            slopes_[iter] = self.derivator.get(1, function, &[iter], point)?;
+            intercept_ = intercept_ - slopes_[iter] * point[iter];
         }
 
         Ok(LinearApproximation {

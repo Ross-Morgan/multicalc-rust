@@ -1,27 +1,22 @@
-use crate::numeric::Numeric;
-use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::utils::error_codes::CalcError;
+use crate::numerical_derivative::finite_difference::MultiVariableSolver;
+use const_poly::Polynomial;
 
-/// Computes the Hessian matrix of a scalar multi-variable function, using any derivator
-/// that implements [`DerivatorMultiVariable`].
-pub struct Hessian<D: DerivatorMultiVariable> {
-    derivator: D,
+///computes the hessian matrix for a given function
+/// Can handle single and multivariable equations of any complexity or size
+pub struct Hessian {
+    derivator: MultiVariableSolver,
 }
 
-impl<D: DerivatorMultiVariable + Default> Default for Hessian<D> {
+impl Default for Hessian {
+    ///the default constructor, optimal for most generic cases
     fn default() -> Self {
-        Hessian {
-            derivator: D::default(),
-        }
+        return Hessian {
+            derivator: MultiVariableSolver::default(),
+        };
     }
 }
 
-impl<D: DerivatorMultiVariable> Hessian<D> {
-    /// Builds a Hessian from an explicit derivator. Use this to supply a custom derivator,
-    /// either one from this crate or your own implementation of [`DerivatorMultiVariable`].
-    pub fn from_derivator(derivator: D) -> Self {
-        Hessian { derivator }
-    }
+impl Hessian {
 
     /// Returns the Hessian matrix of `function` evaluated at `vector_of_points`.
     ///
@@ -48,28 +43,40 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     /// let result = hessian.get(&my_func, &[1.0, 2.0]).unwrap();
     /// assert!(f64::abs(result[0][0] - (-2.0 * f64::sin(1.0))) < 1e-5);
     /// ```
-    pub fn get<F: Fn(&[D::Scalar; NUM_VARS]) -> D::Scalar, const NUM_VARS: usize>(
+    ///
+    pub const fn get<const NUM_VARS: usize>(
         &self,
-        function: &F,
-        vector_of_points: &[D::Scalar; NUM_VARS],
-    ) -> Result<[[D::Scalar; NUM_VARS]; NUM_VARS], CalcError> {
-        let mut result = [[<D::Scalar as Numeric>::NAN; NUM_VARS]; NUM_VARS];
+        function: &Polynomial<NUM_VARS>,
+        vector_of_points: &[f64; NUM_VARS],
+    ) -> Result<[[f64; NUM_VARS]; NUM_VARS], &'static str> {
+        let mut result = [[0.0; NUM_VARS]; NUM_VARS];
 
-        // explicit indices are needed for the symmetric mirror write `result[col][row]`
-        #[allow(clippy::needless_range_loop)]
-        for row_index in 0..NUM_VARS {
-            for col_index in 0..NUM_VARS {
-                if result[row_index][col_index].is_nan() {
-                    result[row_index][col_index] = self.derivator.get_double_partial(
+        let mut row_index = 0;
+
+        while row_index < NUM_VARS {
+            let mut col_index = 0;
+            while col_index < NUM_VARS {
+
+                // compute only upper triangle (symmetric Hessian)
+                if col_index >= row_index {
+                    let res = self.derivator.get_double_partial(
                         function,
                         &[row_index, col_index],
                         vector_of_points,
-                    )?;
+                    );
 
-                    result[col_index][row_index] = result[row_index][col_index];
-                    //exploit the fact that a hessian is a symmetric matrix
+                    match res {
+                        Ok(value) => {
+                            result[row_index][col_index] = value;
+                            result[col_index][row_index] = value;
+                        }
+                        Err(e) => return Err(e),
+                    }
                 }
+
+                col_index += 1;
             }
+            row_index += 1;
         }
 
         Ok(result)

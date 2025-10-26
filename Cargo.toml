@@ -14,7 +14,6 @@ categories = ["mathematics", "science", "no-std"]
 
 [dependencies]
 const_poly = "0.0.5"
-num-complex = "0.4.6"
 
 [dev-dependencies]
 rand = "0.8"

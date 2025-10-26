@@ -1,32 +1,25 @@
-use crate::numeric::Numeric;
-use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::utils::error_codes::CalcError;
+use crate::numerical_derivative::finite_difference::MultiVariableSolver;
+use crate::utils::error_codes::*;
+use const_poly::Polynomial;
 
-#[cfg(feature = "alloc")]
-use alloc::{boxed::Box, vec::Vec};
+#[cfg(feature = "heap")]
+use std::{boxed::Box, vec::Vec};
 
-/// Computes the Jacobian matrix of a vector of multi-variable functions, using any
-/// derivator that implements [`DerivatorMultiVariable`].
-pub struct Jacobian<D: DerivatorMultiVariable> {
-    derivator: D,
+pub struct Jacobian {
+    derivator: MultiVariableSolver,
 }
 
-impl<D: DerivatorMultiVariable + Default> Default for Jacobian<D> {
+impl Default for Jacobian {
     fn default() -> Self {
-        Jacobian {
-            derivator: D::default(),
+        Self {
+            derivator: MultiVariableSolver::default(),
         }
     }
 }
 
-impl<D: DerivatorMultiVariable> Jacobian<D> {
-    /// Builds a Jacobian from an explicit derivator. Use this to supply a custom derivator,
-    /// either one from this crate or your own implementation of [`DerivatorMultiVariable`].
-    pub fn from_derivator(derivator: D) -> Self {
-        Jacobian { derivator }
-    }
-
-    /// Returns the Jacobian matrix of `function_matrix` evaluated at `vector_of_points`.
+impl Jacobian {
+    /// Returns the jacobian matrix for a given vector of functions
+    /// Can handle multivariable functions of any order or complexity
     ///
     /// The result has one row per function and one column per variable, so entry `[m][n]`
     /// is `d(function m)/d(variable n)`.
@@ -54,23 +47,39 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// // result is [[6, 3, 2], [2, 4, 0]]
     /// assert!(f64::abs(result[0][0] - 6.0) < 1e-6);
     /// ```
-    pub fn get<const NUM_FUNCS: usize, const NUM_VARS: usize>(
+    ///
+    pub const fn get<const NUM_FUNCS: usize, const NUM_VARS: usize>(
         &self,
-        function_matrix: &[&dyn Fn(&[D::Scalar; NUM_VARS]) -> D::Scalar; NUM_FUNCS],
-        vector_of_points: &[D::Scalar; NUM_VARS],
-    ) -> Result<[[D::Scalar; NUM_VARS]; NUM_FUNCS], CalcError> {
-        if function_matrix.is_empty() {
-            return Err(CalcError::EmptyFunctionSet);
+        function_matrix: &[&Polynomial<NUM_VARS>; NUM_FUNCS],
+        vector_of_points: &[f64; NUM_VARS],
+    ) -> Result<[[f64; NUM_VARS]; NUM_FUNCS], &'static str> {
+
+        if NUM_FUNCS == 0 {
+            return Err(VECTOR_OF_FUNCTIONS_CANNOT_BE_EMPTY);
         }
 
-        let mut result = [[<D::Scalar as Numeric>::ZERO; NUM_VARS]; NUM_FUNCS];
+        let mut result = [[0.0; NUM_VARS]; NUM_FUNCS];
 
-        for (func, row) in function_matrix.iter().zip(result.iter_mut()) {
-            for (col_index, slot) in row.iter_mut().enumerate() {
-                *slot = self
-                    .derivator
-                    .get_single_partial(func, col_index, vector_of_points)?;
+        let mut row_index = 0;
+        while row_index < NUM_FUNCS {
+
+            let mut col_index = 0;
+            while col_index < NUM_VARS {
+                let val = self.derivator.get_single_partial(
+                    function_matrix[row_index],
+                    col_index,
+                    vector_of_points,
+                );
+
+                match val {
+                    Ok(v) => result[row_index][col_index] = v,
+                    Err(e) => return Err(e),
+                }
+
+                col_index += 1;
             }
+
+            row_index += 1;
         }
 
         Ok(result)
