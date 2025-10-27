@@ -68,17 +68,20 @@ impl IterativeConfig {
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> f64 {
         if number_of_integrations == 1 {
-            let mut current_point = integration_limit[0][0];
+            let (lower_limit, upper_limit) = get_domain_change_limits(&integration_limit[0]);
 
-            let mut ans = 7.0 * func(current_point);
-            let delta = (integration_limit[0][1] - integration_limit[0][0])
-                / (self.total_iterations as f64);
+            let mut ans =
+                7.0 * get_domain_change_function_value(func, &integration_limit[0], lower_limit);
 
+            let delta = (upper_limit - lower_limit) / (self.total_iterations as f64);
+
+            let mut current_point = lower_limit;
             let mut multiplier = 32.0;
 
             for iter in 0..self.total_iterations - 1 {
-                current_point = current_point + delta;
-                ans = ans + multiplier * func(current_point);
+                current_point += delta;
+                ans += multiplier
+                    * get_domain_change_function_value(func, &integration_limit[0], current_point);
 
                 if (iter + 2) % 2 != 0 {
                     multiplier = 32.0;
@@ -89,9 +92,7 @@ impl IterativeConfig {
                 }
             }
 
-            current_point = integration_limit[0][1];
-
-            ans = ans + 7.0 * func(current_point);
+            ans += 7.0 * get_domain_change_function_value(func, &integration_limit[0], upper_limit);
 
             return 2.0 * delta * ans / 45.0;
         }
@@ -107,8 +108,8 @@ impl IterativeConfig {
 
         for iter in 0..self.total_iterations - 1 {
             current_point = current_point + delta;
-            ans = ans
-                + multiplier * self.get_booles(number_of_integrations - 1, func, integration_limit);
+            ans +=
+                multiplier * self.get_booles(number_of_integrations - 1, func, integration_limit);
 
             if (iter + 2) % 2 != 0 {
                 multiplier = 32.0;
@@ -119,9 +120,7 @@ impl IterativeConfig {
             }
         }
 
-        //current_point = integration_limit[1];
-
-        ans = ans + 7.0 * self.get_booles(number_of_integrations - 1, func, integration_limit);
+        ans += 7.0 * self.get_booles(number_of_integrations - 1, func, integration_limit);
 
         return 2.0 * delta * ans / 45.0;
     }
@@ -137,17 +136,20 @@ impl IterativeConfig {
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> f64 {
         if number_of_integrations == 1 {
-            let mut current_point = integration_limit[0][0];
+            let (lower_limit, upper_limit) = get_domain_change_limits(&integration_limit[0]);
 
-            let mut ans = func(current_point);
-            let delta = (integration_limit[0][1] - integration_limit[0][0])
-                / (self.total_iterations as f64);
+            let mut ans =
+                get_domain_change_function_value(func, &integration_limit[0], lower_limit);
+
+            let delta = (upper_limit - lower_limit) / (self.total_iterations as f64);
 
             let mut multiplier = 3.0;
+            let mut current_point = lower_limit;
 
             for iter in 0..self.total_iterations - 1 {
-                current_point = current_point + delta;
-                ans = ans + multiplier * func(current_point);
+                current_point += delta;
+                ans += multiplier
+                    * get_domain_change_function_value(func, &integration_limit[0], current_point);
 
                 if (iter + 2) % 3 == 0 {
                     multiplier = 2.0;
@@ -156,9 +158,7 @@ impl IterativeConfig {
                 }
             }
 
-            current_point = integration_limit[0][1];
-
-            ans = ans + func(current_point);
+            ans += get_domain_change_function_value(func, &integration_limit[0], upper_limit);
 
             return 3.0 * delta * ans / 8.0;
         }
@@ -174,9 +174,8 @@ impl IterativeConfig {
 
         for iter in 0..self.total_iterations - 1 {
             current_point = current_point + delta;
-            ans = ans
-                + multiplier
-                    * self.get_simpsons(number_of_integrations - 1, func, integration_limit);
+            ans +=
+                multiplier * self.get_simpsons(number_of_integrations - 1, func, integration_limit);
 
             if (iter + 2) % 3 == 0 {
                 multiplier = 2.0;
@@ -185,9 +184,7 @@ impl IterativeConfig {
             }
         }
 
-        //current_point = integration_limit[1];
-
-        ans = ans + self.get_simpsons(number_of_integrations - 1, func, integration_limit);
+        ans += self.get_simpsons(number_of_integrations - 1, func, integration_limit);
 
         return 3.0 * delta * ans / 8.0;
     }
@@ -203,20 +200,21 @@ impl IterativeConfig {
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> f64 {
         if number_of_integrations == 1 {
-            let mut current_point = integration_limit[0][0];
+            let (lower_limit, upper_limit) = get_domain_change_limits(&integration_limit[0]);
 
-            let mut ans = func(current_point);
-            let delta = (integration_limit[0][1] - integration_limit[0][0])
-                / (self.total_iterations as f64);
+            let mut ans =
+                get_domain_change_function_value(func, &integration_limit[0], lower_limit);
+
+            let delta = (upper_limit - lower_limit) / (self.total_iterations as f64);
+            let mut current_point = lower_limit;
 
             for _ in 0..self.total_iterations - 1 {
-                current_point = current_point + delta;
-                ans = ans + 2.0 * func(current_point);
+                current_point += delta;
+                ans += 2.0
+                    * get_domain_change_function_value(func, &integration_limit[0], current_point);
             }
 
-            current_point = integration_limit[0][1];
-
-            ans = ans + func(current_point);
+            ans += get_domain_change_function_value(func, &integration_limit[0], upper_limit);
 
             return 0.5 * delta * ans;
         }
@@ -224,19 +222,17 @@ impl IterativeConfig {
         let mut current_point = integration_limit[number_of_integrations - 1][0];
 
         let mut ans = self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
+
         let delta = (integration_limit[number_of_integrations - 1][1]
             - integration_limit[number_of_integrations - 1][0])
             / (self.total_iterations as f64);
 
         for _ in 0..self.total_iterations - 1 {
             current_point = current_point + delta;
-            ans = ans
-                + 2.0 * self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
+            ans += 2.0 * self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
         }
 
-        //current_point = integration_limit[1];
-
-        ans = ans + self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
+        ans += self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
 
         return 0.5 * delta * ans;
     }
