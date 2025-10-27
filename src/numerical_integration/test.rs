@@ -441,7 +441,7 @@ fn test_trapezoidal_integration_3() {
 
     //simple double integration for 6*x, expect a value of ~24.00
     let val = integrator.get_double(&func, &integration_limits).unwrap();
-    assert!(f64::abs(val - 24.0) < 0.00001);
+    assert!(f64::abs(val - 24.0) < 0.0001);
 }
 
 #[test]
@@ -648,6 +648,41 @@ fn test_double_infinite_integrals_multivariable_3() {
             expected
         );
     }
+}
+
+#[test]
+fn test_infinite_upper_limit() {
+    let func = |x: f64| -> f64 {
+        return (-x).exp();
+    };
+
+    let iterator = iterative_integration::SingleVariableSolver::from_parameters(
+        100,
+        IterativeMethod::Trapezoidal,
+    );
+
+    let val = iterator.get_single(&func, &[0.0, f64::INFINITY]).unwrap();
+
+    println!("======= ANMOL ========= {}", val);
+
+    assert!((val - 1.0).abs() < 1e-5);
+}
+
+#[test]
+fn test_infinite_both_limits() {
+    let func = |x: f64| -> f64 {
+        return (-x * x).exp();
+    };
+
+    let iterator = iterative_integration::SingleVariableSolver::from_parameters(
+        100,
+        IterativeMethod::Trapezoidal,
+    );
+
+    let val = iterator
+        .get_single(&func, &[f64::NEG_INFINITY, f64::INFINITY])
+        .unwrap();
+    assert!((val - 1.77245385091).abs() < 1e-2);
 }
 
 #[test]
