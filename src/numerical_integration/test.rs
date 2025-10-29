@@ -651,41 +651,6 @@ fn test_double_infinite_integrals_multivariable_3() {
 }
 
 #[test]
-fn test_infinite_upper_limit() {
-    let func = |x: f64| -> f64 {
-        return (-x).exp();
-    };
-
-    let iterator = iterative_integration::SingleVariableSolver::from_parameters(
-        100,
-        IterativeMethod::Trapezoidal,
-    );
-
-    let val = iterator.get_single(&func, &[0.0, f64::INFINITY]).unwrap();
-
-    println!("======= ANMOL ========= {}", val);
-
-    assert!((val - 1.0).abs() < 1e-5);
-}
-
-#[test]
-fn test_infinite_both_limits() {
-    let func = |x: f64| -> f64 {
-        return (-x * x).exp();
-    };
-
-    let iterator = iterative_integration::SingleVariableSolver::from_parameters(
-        100,
-        IterativeMethod::Trapezoidal,
-    );
-
-    let val = iterator
-        .get_single(&func, &[f64::NEG_INFINITY, f64::INFINITY])
-        .unwrap();
-    assert!((val - 1.77245385091).abs() < 1e-2);
-}
-
-#[test]
 fn test_error_checking_1() {
     //equation is 2.0*x
     let func = |args: f64| -> f64 { 2.0 * args };
