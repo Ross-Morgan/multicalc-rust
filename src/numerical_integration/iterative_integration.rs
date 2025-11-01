@@ -68,8 +68,10 @@ impl SingleVariableSolver {
             return Err(CalcError::IterationsZero);
         }
 
-        for limit in integration_limit {
-            classify(limit)?;
+        for &limit in integration_limit {
+            if limit[0] >= limit[1] {
+                return Err(INTEGRATION_LIMITS_ILL_DEFINED);
+            }
         }
 
         if NUM_INTEGRATIONS != number_of_integrations {
@@ -126,10 +128,7 @@ impl SingleVariableSolver {
 
         let mut multiplier = 32.0;
 
-        let mut current_point = integration_limit[number_of_integrations - 1][0];
-
         for iter in 0..self.total_iterations - 1 {
-            current_point += delta;
             ans +=
                 multiplier * self.get_booles(number_of_integrations - 1, func, integration_limit);
 
@@ -185,8 +184,6 @@ impl SingleVariableSolver {
             return 3.0 * delta * ans / 8.0;
         }
 
-        let mut current_point = integration_limit[number_of_integrations - 1][0];
-
         let mut ans = self.get_simpsons(number_of_integrations - 1, func, integration_limit);
         let delta = (integration_limit[number_of_integrations - 1][1]
             - integration_limit[number_of_integrations - 1][0])
@@ -195,7 +192,6 @@ impl SingleVariableSolver {
         let mut multiplier = 3.0;
 
         for iter in 0..self.total_iterations - 1 {
-            current_point += delta;
             ans +=
                 multiplier * self.get_simpsons(number_of_integrations - 1, func, integration_limit);
 
@@ -242,8 +238,6 @@ impl SingleVariableSolver {
             return 0.5 * delta * ans;
         }
 
-        let mut current_point = integration_limit[number_of_integrations - 1][0];
-
         let mut ans = self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
 
         let delta = (integration_limit[number_of_integrations - 1][1]
@@ -251,7 +245,6 @@ impl SingleVariableSolver {
             / (self.total_iterations as f64);
 
         for _ in 0..self.total_iterations - 1 {
-            current_point += delta;
             ans += 2.0 * self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
         }
 
@@ -547,8 +540,8 @@ impl<T: Numeric> IterativeMulti<T> {
             return Err(INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS);
         }
 
-        for iter in 0..integration_limit.len() {
-            if integration_limit[iter][0] >= integration_limit[iter][1] {
+        for &limit in integration_limit {
+            if limit[0] >= limit[1] {
                 return Err(INTEGRATION_LIMITS_ILL_DEFINED);
             }
         }
