@@ -8,7 +8,7 @@ pub fn transpose<const NUM_ROWS: usize, const NUM_COLUMNS: usize>(
         for col_index in 0..NUM_ROWS {
             result[row_index][col_index] = matrix[col_index][row_index];
         }
+        c += 1;
     }
-
     result
 }
