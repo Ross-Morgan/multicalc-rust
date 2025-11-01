@@ -122,8 +122,6 @@ impl SingleVariableSolver {
             )
             .unwrap();
 
-            //let args = abcsissa_coeff*abcsissa + intercept;
-
             ans += weight
                 * self.get_gauss_legendre(number_of_integrations - 1, func, integration_limit);
         }
@@ -134,12 +132,12 @@ impl SingleVariableSolver {
     ///returns the gauss hermite numerical integral for a given equation
     /// number_of_integrations: number of integrations to perform on the equation
     /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
+    /// _integration_limit: the integration bound(s) for each round of integration
     fn get_gauss_hermite<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
         func: &dyn Fn(f64) -> f64,
-        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
+        _integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> f64 {
         if number_of_integrations == 1 {
             let mut ans = 0.0;
@@ -169,7 +167,7 @@ impl SingleVariableSolver {
             .unwrap();
 
             ans += weight
-                * self.get_gauss_hermite(number_of_integrations - 1, func, integration_limit);
+                * self.get_gauss_hermite(number_of_integrations - 1, func, _integration_limit);
         }
 
         ans
@@ -178,12 +176,12 @@ impl SingleVariableSolver {
     ///returns the gauss laguerre numerical integral for a given equation
     /// number_of_integrations: number of integrations to perform on the equation
     /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
+    /// _integration_limit: the integration bound(s) for each round of integration
     fn get_gauss_laguerre<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
         func: &dyn Fn(f64) -> f64,
-        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
+        _integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> f64 {
         if number_of_integrations == 1 {
             let mut ans = 0.0;
@@ -213,7 +211,7 @@ impl SingleVariableSolver {
             .unwrap();
 
             ans +=
-                weight * self.get_gauss_laguerre(number_of_integrations, func, integration_limit);
+                weight * self.get_gauss_laguerre(number_of_integrations, func, _integration_limit);
         }
 
         ans
@@ -389,6 +387,7 @@ impl MultiVariableSolver {
         let abcsissa_coeff = (integration_limits[number_of_integrations - 1][1]
             - integration_limits[number_of_integrations - 1][0])
             / 2.0;
+
         let intercept = (integration_limits[number_of_integrations - 1][1]
             + integration_limits[number_of_integrations - 1][0])
             / 2.0;
@@ -423,14 +422,14 @@ impl MultiVariableSolver {
     /// number_of_integrations: number of integrations to perform on the equation
     /// idx_to_integrate: the index/indices of variable to integrate
     /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
+    /// _integration_limits: the integration bound(s) for each round of integration
     /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
     fn get_gauss_hermite<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
         func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
-        integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
+        _integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> f64 {
         if number_of_integrations == 1 {
@@ -473,7 +472,7 @@ impl MultiVariableSolver {
                     number_of_integrations - 1,
                     idx_to_integrate,
                     func,
-                    integration_limits,
+                    _integration_limits,
                     &args,
                 );
         }
@@ -485,14 +484,14 @@ impl MultiVariableSolver {
     /// number_of_integrations: number of integrations to perform on the equation
     /// idx_to_integrate: the index/indices of variable to integrate
     /// func: the equation to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
+    /// _integration_limits: the integration bound(s) for each round of integration
     /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
     fn get_gauss_laguerre<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
         func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
-        integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
+        _integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> f64 {
         if number_of_integrations == 1 {
@@ -535,7 +534,7 @@ impl MultiVariableSolver {
                     number_of_integrations - 1,
                     idx_to_integrate,
                     func,
-                    integration_limits,
+                    _integration_limits,
                     &args,
                 );
         }
