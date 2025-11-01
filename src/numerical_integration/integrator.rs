@@ -16,14 +16,7 @@ pub trait IntegratorSingleVariable: Default + Clone + Copy {
     ) -> Result<f64, &'static str> {
         let new_limits: [[f64; 2]; 1] = [*integration_limit];
 
-/// Validates a single integration limit and classifies its domain.
-///
-/// Rejects `NaN` limits, equal/reversed finite limits, and infinite limits whose
-/// finite end points the wrong way (e.g. `(a, -inf)` or `(+inf, b)`).
-pub(crate) fn classify<T: Numeric>(limit: &[T; 2]) -> Result<Domain<T>, CalcError> {
-    let (a, b) = (limit[0], limit[1]);
-    if a.is_nan() || b.is_nan() {
-        return Err(CalcError::IntegrationLimitsIllDefined);
+        self.get(1, func, &new_limits)
     }
 
     ///convenience wrapper for a double integral of a single variable function
@@ -32,7 +25,7 @@ pub(crate) fn classify<T: Numeric>(limit: &[T; 2]) -> Result<Domain<T>, CalcErro
         func: &dyn Fn(f64) -> f64,
         integration_limit: &[[f64; 2]; 2],
     ) -> Result<f64, &'static str> {
-        return self.get(2, func, integration_limit);
+        self.get(2, func, integration_limit)
     }
 }
 
@@ -144,10 +137,13 @@ pub trait IntegratorMultiVariable {
         &self,
         func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         idx_to_integrate: usize,
-        integration_limits: &[Self::Scalar; 2],
-        point: &[Self::Scalar; NUM_VARS],
-    ) -> Result<Self::Scalar, CalcError> {
-        self.get([idx_to_integrate], func, &[*integration_limits], point)
+        integration_limits: &[f64; 2],
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, &'static str> {
+        let new_limits: [[f64; 2]; 1] = [*integration_limits];
+        let new_idx: [usize; 1] = [idx_to_integrate];
+
+        self.get(1, new_idx, func, &new_limits, point)
     }
 
     /// Convenience wrapper for a double partial integral of a multi variable function.
@@ -158,10 +154,10 @@ pub trait IntegratorMultiVariable {
         &self,
         func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         idx_to_integrate: [usize; 2],
-        integration_limits: &[[Self::Scalar; 2]; 2],
-        point: &[Self::Scalar; NUM_VARS],
-    ) -> Result<Self::Scalar, CalcError> {
-        self.get(idx_to_integrate, func, integration_limits, point)
+        integration_limits: &[[f64; 2]; 2],
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, &'static str> {
+        self.get(2, idx_to_integrate, func, integration_limits, point)
     }
 }
 

@@ -35,9 +35,9 @@ pub fn get_3d<D, const NUM_VARS: usize>(
 where
     D: DerivatorMultiVariable,
 {
-    return Ok(derivator.get(1, vector_field[0], &[0], point)?
+    Ok(derivator.get(1, vector_field[0], &[0], point)?
         + derivator.get(1, vector_field[1], &[1], point)?
-        + derivator.get(1, vector_field[2], &[2], point)?);
+        + derivator.get(1, vector_field[2], &[2], point)?)
 }
 
 /// Computes the divergence of a 2D vector field at a point.
@@ -74,6 +74,6 @@ pub fn get_2d<D, const NUM_VARS: usize>(
 where
     D: DerivatorMultiVariable,
 {
-    return Ok(derivator.get(1, vector_field[0], &[0], point)?
-        + derivator.get(1, vector_field[1], &[1], point)?);
+    Ok(derivator.get(1, vector_field[0], &[0], point)?
+        + derivator.get(1, vector_field[1], &[1], point)?)
 }

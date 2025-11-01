@@ -32,10 +32,10 @@ pub struct FiniteDifferenceConfig<T = f64> {
 impl<T: Numeric> Default for FiniteDifferenceConfig<T> {
     /// Central difference with the default step size and multiplier; best for most cases.
     fn default() -> Self {
-        FiniteDifferenceConfig {
-            step_size: T::from_f64(mode::DEFAULT_STEP_SIZE),
-            method: FiniteDifferenceMode::Central,
-            step_size_multiplier: T::from_f64(mode::DEFAULT_STEP_SIZE_MULTIPLIER),
+        SingleVariableSolver {
+            step_size: mode::DEFAULT_STEP_SIZE,
+            method: mode::FiniteDifferenceMode::Central,
+            step_size_multiplier: mode::DEFAULT_STEP_SIZE_MULTIPLIER,
         }
     }
 }
@@ -43,7 +43,7 @@ impl<T: Numeric> Default for FiniteDifferenceConfig<T> {
 impl SingleVariableSolver {
     ///Returns the step size
     pub fn get_step_size(&self) -> f64 {
-        return self.step_size;
+        self.step_size
     }
 
     ///Sets the step size
@@ -54,7 +54,7 @@ impl SingleVariableSolver {
     ///Returns the chosen method of differentiation
     ///Possible choices are: Forward step, backward step and central step
     pub fn get_method(&self) -> mode::FiniteDifferenceMode {
-        return self.method;
+        self.method
     }
 
     ///Sets the method of differentiation
@@ -65,7 +65,7 @@ impl SingleVariableSolver {
 
     ///Returns the chosen step size multiplier
     pub fn get_step_size_multiplier(&self) -> f64 {
-        return self.step_size_multiplier;
+        self.step_size_multiplier
     }
 
     ///Sets the chosen step size multiplier. The step size will
@@ -120,7 +120,7 @@ impl SingleVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        return (f1 - f0) / (step_size);
+        (f1 - f0) / (step_size)
     }
 
     ///Returns the backward difference numerical differentiation for single variable functions
@@ -155,7 +155,7 @@ impl SingleVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        return (f1 - f0) / (step_size);
+        (f1 - f0) / (step_size)
     }
 
     ///Returns the central difference numerical differentiation for single variable functions
@@ -190,7 +190,7 @@ impl SingleVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        return (f1 - f0) / (2.0 * step_size);
+        (f1 - f0) / (2.0 * step_size)
     }
 }
 
@@ -244,28 +244,13 @@ impl DerivatorSingleVariable for SingleVariableSolver {
 
         match self.method {
             mode::FiniteDifferenceMode::Forward => {
-                return Ok(self.get_forward_difference_single_variable(
-                    order,
-                    func,
-                    point,
-                    self.step_size,
-                ))
+                Ok(self.get_forward_difference_single_variable(order, func, point, self.step_size))
             }
-            mode::FiniteDifferenceMode::Backward => {
-                return Ok(self.get_backward_difference_single_variable(
-                    order,
-                    func,
-                    point,
-                    self.step_size,
-                ))
-            }
+            mode::FiniteDifferenceMode::Backward => Ok(
+                self.get_backward_difference_single_variable(order, func, point, self.step_size)
+            ),
             mode::FiniteDifferenceMode::Central => {
-                return Ok(self.get_central_difference_single_variable(
-                    order,
-                    func,
-                    point,
-                    self.step_size,
-                ))
+                Ok(self.get_central_difference_single_variable(order, func, point, self.step_size))
             }
         }
     }
@@ -284,18 +269,18 @@ pub struct MultiVariableSolver {
 impl Default for MultiVariableSolver {
     ///default constructor, choose this for optimal results for most generic equations
     fn default() -> Self {
-        return MultiVariableSolver {
+        MultiVariableSolver {
             step_size: mode::DEFAULT_STEP_SIZE,
             method: mode::FiniteDifferenceMode::Central,
             step_size_multiplier: mode::DEFAULT_STEP_SIZE_MULTIPLIER,
-        };
+        }
     }
 }
 
 impl MultiVariableSolver {
     ///Returns the step size
     pub fn get_step_size(&self) -> f64 {
-        return self.step_size;
+        self.step_size
     }
 
     ///Sets the step size
@@ -306,7 +291,7 @@ impl MultiVariableSolver {
     ///Returns the chosen method of differentiation
     ///Possible choices are: Forward step, backward step and central step
     pub fn get_method(&self) -> mode::FiniteDifferenceMode {
-        return self.method;
+        self.method
     }
 
     ///Sets the method of differentiation
@@ -317,7 +302,7 @@ impl MultiVariableSolver {
 
     ///Returns the chosen step size multiplier.
     pub fn get_step_size_multiplier(&self) -> f64 {
-        return self.step_size_multiplier;
+        self.step_size_multiplier
     }
 
     ///Sets the chosen step size multiplier. The step size will
@@ -335,7 +320,7 @@ impl MultiVariableSolver {
     pub fn from_parameters(step: f64, method: mode::FiniteDifferenceMode, multiplier: f64) -> Self {
         MultiVariableSolver {
             step_size: step,
-            method: method,
+            method,
             step_size_multiplier: multiplier,
         }
     }
@@ -356,7 +341,7 @@ impl MultiVariableSolver {
             let f0_args = point;
 
             let mut f1_args = *point;
-            f1_args[idx_to_derivate[0]] = f1_args[idx_to_derivate[0]] + step_size;
+            f1_args[idx_to_derivate[0]] += step_size;
 
             let f0 = func(f0_args);
             let f1 = func(&f1_args);
@@ -367,7 +352,7 @@ impl MultiVariableSolver {
         let f0_args = point;
 
         let mut f1_args = *point;
-        f1_args[idx_to_derivate[order - 1]] = f1_args[idx_to_derivate[order - 1]] + step_size;
+        f1_args[idx_to_derivate[order - 1]] += step_size;
 
         let f0 = self.get_forward_difference_multi_variable(
             order - 1,
@@ -384,7 +369,7 @@ impl MultiVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        return (f1 - f0) / step_size;
+        (f1 - f0) / step_size
     }
 
     ///Returns the partial backward difference numerical differentiation for multi variable functions
@@ -401,7 +386,7 @@ impl MultiVariableSolver {
     ) -> f64 {
         if order == 1 {
             let mut f0_args = *point;
-            f0_args[idx_to_derivate[0]] = f0_args[idx_to_derivate[0]] - step_size;
+            f0_args[idx_to_derivate[0]] -= step_size;
 
             let f1_args = point;
 
@@ -412,7 +397,7 @@ impl MultiVariableSolver {
         }
 
         let mut f0_args = *point;
-        f0_args[idx_to_derivate[order - 1]] = f0_args[idx_to_derivate[order - 1]] - step_size;
+        f0_args[idx_to_derivate[order - 1]] -= step_size;
 
         let f1_args = point;
 
@@ -431,7 +416,7 @@ impl MultiVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        return (f1 - f0) / step_size;
+        (f1 - f0) / step_size
     }
 
     ///Returns the partial central difference numerical differentiation for multi variable functions
@@ -448,10 +433,10 @@ impl MultiVariableSolver {
     ) -> f64 {
         if order == 1 {
             let mut f0_args = *point;
-            f0_args[idx_to_derivate[0]] = f0_args[idx_to_derivate[0]] - step_size;
+            f0_args[idx_to_derivate[0]] -= step_size;
 
             let mut f1_args = *point;
-            f1_args[idx_to_derivate[0]] = f1_args[idx_to_derivate[0]] + step_size;
+            f1_args[idx_to_derivate[0]] += step_size;
 
             let f0 = func(&f0_args);
             let f1 = func(&f1_args);
@@ -460,7 +445,7 @@ impl MultiVariableSolver {
         }
 
         let mut f0_point = *point;
-        f0_point[idx_to_derivate[order - 1]] = f0_point[idx_to_derivate[order - 1]] - step_size;
+        f0_point[idx_to_derivate[order - 1]] -= step_size;
 
         let f0 = self.get_central_difference_multi_variable(
             order - 1,
@@ -471,7 +456,7 @@ impl MultiVariableSolver {
         );
 
         let mut f1_point = *point;
-        f1_point[idx_to_derivate[order - 1]] = f1_point[idx_to_derivate[order - 1]] + step_size;
+        f1_point[idx_to_derivate[order - 1]] += step_size;
 
         let f1 = self.get_central_difference_multi_variable(
             order - 1,
@@ -481,7 +466,7 @@ impl MultiVariableSolver {
             self.step_size_multiplier * step_size,
         );
 
-        return (f1 - f0) / (2.0 * step_size);
+        (f1 - f0) / (2.0 * step_size)
     }
 }
 
@@ -547,10 +532,29 @@ impl DerivatorMultiVariable for MultiVariableSolver {
             }
         }
 
-impl<T: Numeric> Default for FiniteDifferenceMulti<T> {
-    fn default() -> Self {
-        FiniteDifferenceMulti {
-            config: FiniteDifferenceConfig::default(),
+        match self.method {
+            mode::FiniteDifferenceMode::Forward => Ok(self.get_forward_difference_multi_variable(
+                order,
+                func,
+                idx_to_derivate,
+                point,
+                self.step_size,
+            )),
+            mode::FiniteDifferenceMode::Backward => Ok(self
+                .get_backward_difference_multi_variable(
+                    order,
+                    func,
+                    idx_to_derivate,
+                    point,
+                    self.step_size,
+                )),
+            mode::FiniteDifferenceMode::Central => Ok(self.get_central_difference_multi_variable(
+                order,
+                func,
+                idx_to_derivate,
+                point,
+                self.step_size,
+            )),
         }
     }
 }

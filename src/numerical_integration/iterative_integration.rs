@@ -19,17 +19,39 @@ pub struct IterativeConfig {
 impl Default for IterativeConfig {
     /// Boole's rule with [`DEFAULT_TOTAL_ITERATIONS`] intervals; optimal for most generic equations.
     fn default() -> Self {
-        IterativeConfig {
+        SingleVariableSolver {
             total_iterations: DEFAULT_TOTAL_ITERATIONS,
             integration_method: IterativeMethod::Booles,
         }
     }
 }
 
-impl IterativeConfig {
-    /// Builds a config with an explicit iteration count and rule.
+impl SingleVariableSolver {
+    ///returns the total nuber of iterations
+    pub fn get_total_iterations(&self) -> u64 {
+        self.total_iterations
+    }
+
+    ///sets the total nuber of iterations
+    pub fn set_total_iterations(&mut self, total_iterations: u64) {
+        self.total_iterations = total_iterations;
+    }
+
+    ///returns the chosen integration method
+    /// choices are: Booles, Simpsons and Trapezoidal
+    pub fn get_integration_method(&self) -> IterativeMethod {
+        self.integration_method
+    }
+
+    ///sets the integration method
+    ///choices are: Booles, Simpsons and Trapezoidal
+    pub fn set_integration_method(&mut self, integration_method: IterativeMethod) {
+        self.integration_method = integration_method;
+    }
+
+    ///custom constructor. Optimal for fine-tuning for more complex equations
     pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
-        IterativeConfig {
+        SingleVariableSolver {
             total_iterations,
             integration_method,
         }
@@ -54,7 +76,7 @@ impl IterativeConfig {
             return Err(INCORRECT_NUMBER_OF_INTEGRATION_LIMITS);
         }
 
-        return Ok(());
+        Ok(())
     }
 
     ///returns the numerical integration via Booles' method
@@ -97,8 +119,6 @@ impl IterativeConfig {
             return 2.0 * delta * ans / 45.0;
         }
 
-        let mut current_point = integration_limit[number_of_integrations - 1][0];
-
         let mut ans = 7.0 * self.get_booles(number_of_integrations - 1, func, integration_limit);
         let delta = (integration_limit[number_of_integrations - 1][1]
             - integration_limit[number_of_integrations - 1][0])
@@ -106,8 +126,10 @@ impl IterativeConfig {
 
         let mut multiplier = 32.0;
 
+        let mut current_point = integration_limit[number_of_integrations - 1][0];
+
         for iter in 0..self.total_iterations - 1 {
-            current_point = current_point + delta;
+            current_point += delta;
             ans +=
                 multiplier * self.get_booles(number_of_integrations - 1, func, integration_limit);
 
@@ -122,7 +144,7 @@ impl IterativeConfig {
 
         ans += 7.0 * self.get_booles(number_of_integrations - 1, func, integration_limit);
 
-        return 2.0 * delta * ans / 45.0;
+        2.0 * delta * ans / 45.0
     }
 
     ///returns the numerical integration via Simsons 3/8th method
@@ -173,7 +195,7 @@ impl IterativeConfig {
         let mut multiplier = 3.0;
 
         for iter in 0..self.total_iterations - 1 {
-            current_point = current_point + delta;
+            current_point += delta;
             ans +=
                 multiplier * self.get_simpsons(number_of_integrations - 1, func, integration_limit);
 
@@ -186,7 +208,7 @@ impl IterativeConfig {
 
         ans += self.get_simpsons(number_of_integrations - 1, func, integration_limit);
 
-        return 3.0 * delta * ans / 8.0;
+        3.0 * delta * ans / 8.0
     }
 
     ///returns the numerical integration via Trapezoidal method
@@ -229,13 +251,13 @@ impl IterativeConfig {
             / (self.total_iterations as f64);
 
         for _ in 0..self.total_iterations - 1 {
-            current_point = current_point + delta;
+            current_point += delta;
             ans += 2.0 * self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
         }
 
         ans += self.get_trapezoidal(number_of_integrations - 1, func, integration_limit);
 
-        return 0.5 * delta * ans;
+        0.5 * delta * ans
     }
 }
 
@@ -447,13 +469,13 @@ impl<T: Numeric> IntegratorSingleVariable for IterativeSingle<T> {
 
         match self.integration_method {
             IterativeMethod::Booles => {
-                return Ok(self.get_booles(number_of_integrations, func, integration_limit))
+                Ok(self.get_booles(number_of_integrations, func, integration_limit))
             }
             IterativeMethod::Simpsons => {
-                return Ok(self.get_simpsons(number_of_integrations, func, integration_limit))
+                Ok(self.get_simpsons(number_of_integrations, func, integration_limit))
             }
             IterativeMethod::Trapezoidal => {
-                return Ok(self.get_trapezoidal(number_of_integrations, func, integration_limit))
+                Ok(self.get_trapezoidal(number_of_integrations, func, integration_limit))
             }
         }
     }
@@ -468,19 +490,41 @@ pub struct IterativeMulti<T = f64> {
 
 impl<T> Default for IterativeMulti<T> {
     fn default() -> Self {
-        IterativeMulti {
-            config: IterativeConfig::default(),
-            _marker: PhantomData,
+        MultiVariableSolver {
+            total_iterations: DEFAULT_TOTAL_ITERATIONS,
+            integration_method: IterativeMethod::Booles,
         }
     }
 }
 
-impl<T> IterativeMulti<T> {
-    /// custom constructor, optimal for fine-tuning the integrator for more complex equations
+impl MultiVariableSolver {
+    ///returns the total number of iterations
+    pub fn get_total_iterations(&self) -> u64 {
+        self.total_iterations
+    }
+
+    ///sets the total number of iterations
+    pub fn set_total_iterations(&mut self, total_iterations: u64) {
+        self.total_iterations = total_iterations;
+    }
+
+    ///returns the chosen integration method
+    /// choices are: Booles, Simpsons and Trapezoidal
+    pub fn get_integration_method(&self) -> IterativeMethod {
+        self.integration_method
+    }
+
+    ///sets the integration method
+    /// choices are: Booles, Simpsons and Trapezoidal
+    pub fn set_integration_method(&mut self, integration_method: IterativeMethod) {
+        self.integration_method = integration_method;
+    }
+
+    ///custom constructor, optimal for fine-tuning the integrator for more complex equations
     pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
-        IterativeMulti {
-            config: IterativeConfig::from_parameters(total_iterations, integration_method),
-            _marker: PhantomData,
+        MultiVariableSolver {
+            total_iterations,
+            integration_method,
         }
     }
 }
@@ -496,7 +540,35 @@ impl<T: Numeric> IterativeMulti<T> {
         const NUM_INTEGRATIONS: usize,
     >(
         &self,
-        level: usize,
+        number_of_integrations: usize,
+        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
+    ) -> Result<(), &'static str> {
+        if self.total_iterations == 0 {
+            return Err(INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS);
+        }
+
+        for iter in 0..integration_limit.len() {
+            if integration_limit[iter][0] >= integration_limit[iter][1] {
+                return Err(INTEGRATION_LIMITS_ILL_DEFINED);
+            }
+        }
+
+        if NUM_INTEGRATIONS != number_of_integrations {
+            return Err(INCORRECT_NUMBER_OF_INTEGRATION_LIMITS);
+        }
+
+        Ok(())
+    }
+
+    ///returns the numerical integration via Booles' method
+    ///number_of_integrations: number of times the equation needs to be integrated
+    /// idx_to_integrate: the variables' index/indices that needs to be integrated
+    /// func: The function to integrate
+    /// integration_limit: the integration bound(s) for each round of integration
+    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
+    fn get_booles<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
+        &self,
+        number_of_integrations: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
         func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
@@ -604,7 +676,7 @@ impl<T: Numeric> IterativeMulti<T> {
 
         ans += 7.0 * mapped_outer_integrand(transformed_upper_limit);
 
-        return 2.0 * delta * ans / 45.0;
+        2.0 * delta * ans / 45.0
     }
 
     /// Returns the numerical integration via Simsons' 3/8th method
@@ -714,7 +786,7 @@ impl<T: Numeric> IterativeMulti<T> {
         }
 
         ans += mapped_outer_integrand(transformed_upper_limit);
-        return 3.0 * delta * ans / 8.0;
+        3.0 * delta * ans / 8.0
     }
 
     /// Returns the numerical integration via Trapezoidal method
@@ -820,7 +892,7 @@ impl<T: Numeric> IterativeMulti<T> {
 
         ans += mapped_outer_integrand(transformed_upper_limit);
 
-        return 0.5 * delta * ans;
+        0.5 * delta * ans
     }
 }
 
@@ -869,33 +941,27 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
         self.check_for_errors(number_of_integrations, integration_limits)?;
 
         match self.integration_method {
-            IterativeMethod::Booles => {
-                return Ok(self.get_booles(
-                    number_of_integrations,
-                    idx_to_integrate,
-                    func,
-                    integration_limits,
-                    point,
-                ))
-            }
-            IterativeMethod::Simpsons => {
-                return Ok(self.get_simpsons(
-                    number_of_integrations,
-                    idx_to_integrate,
-                    func,
-                    integration_limits,
-                    point,
-                ))
-            }
-            IterativeMethod::Trapezoidal => {
-                return Ok(self.get_trapezoidal(
-                    number_of_integrations,
-                    idx_to_integrate,
-                    func,
-                    integration_limits,
-                    point,
-                ))
-            }
+            IterativeMethod::Booles => Ok(self.get_booles(
+                number_of_integrations,
+                idx_to_integrate,
+                func,
+                integration_limits,
+                point,
+            )),
+            IterativeMethod::Simpsons => Ok(self.get_simpsons(
+                number_of_integrations,
+                idx_to_integrate,
+                func,
+                integration_limits,
+                point,
+            )),
+            IterativeMethod::Trapezoidal => Ok(self.get_trapezoidal(
+                number_of_integrations,
+                idx_to_integrate,
+                func,
+                integration_limits,
+                point,
+            )),
         }
     }
 }

@@ -17,19 +17,41 @@ pub struct GaussianConfig {
 impl Default for GaussianConfig {
     /// Gauss-Legendre at [`DEFAULT_QUADRATURE_ORDERS`]; optimal for most generic polynomial equations.
     fn default() -> Self {
-        GaussianConfig {
+        SingleVariableSolver {
             order: DEFAULT_QUADRATURE_ORDERS,
             integration_method: GaussianQuadratureMethod::GaussLegendre,
         }
     }
 }
 
-impl GaussianConfig {
-    /// Builds a config with an explicit order and quadrature family.
+impl SingleVariableSolver {
+    ///returns the chosen number of nodes/order for quadrature
+    pub fn get_order(&self) -> usize {
+        self.order
+    }
+
+    ///sets the number of nodes/order for quadrature
+    pub fn set_order(&mut self, order: usize) {
+        self.order = order;
+    }
+
+    ///returns the chosen integration method
+    /// possible choices are GaussLegendre, GaussHermite and GaussLaguerre
+    pub fn get_integration_method(&self) -> GaussianQuadratureMethod {
+        self.integration_method
+    }
+
+    /// sets the integration method
+    /// possible choices are GaussLegendre, GaussHermite and GaussLaguerre
+    pub fn set_integration_method(&mut self, integration_method: GaussianQuadratureMethod) {
+        self.integration_method = integration_method;
+    }
+
+    ///custom constructor, optimal for fine-tuning for specific cases
     pub fn from_parameters(order: usize, integration_method: GaussianQuadratureMethod) -> Self {
         SingleVariableSolver {
-            order: order,
-            integration_method: integration_method,
+            order,
+            integration_method,
         }
     }
 
@@ -53,7 +75,7 @@ impl GaussianConfig {
             return Err(INCORRECT_NUMBER_OF_INTEGRATION_LIMITS);
         }
 
-        return Ok(());
+        Ok(())
     }
 
     /// returns the gauss legendre numerical integral for a given equation
@@ -81,7 +103,7 @@ impl GaussianConfig {
 
                 let args = abcsissa_coeff * abcsissa + intercept;
 
-                ans = ans + weight * func(args);
+                ans += weight * func(args);
             }
 
             return abcsissa_coeff * ans;
@@ -103,12 +125,11 @@ impl GaussianConfig {
 
             //let args = abcsissa_coeff*abcsissa + intercept;
 
-            ans = ans
-                + weight
-                    * self.get_gauss_legendre(number_of_integrations - 1, func, integration_limit);
+            ans += weight
+                * self.get_gauss_legendre(number_of_integrations - 1, func, integration_limit);
         }
 
-        return abcsissa_coeff * ans;
+        abcsissa_coeff * ans
     }
 
     ///returns the gauss hermite numerical integral for a given equation
@@ -152,7 +173,7 @@ impl GaussianConfig {
                 * self.get_gauss_hermite(number_of_integrations - 1, func, integration_limit);
         }
 
-        return ans;
+        ans
     }
 
     ///returns the gauss laguerre numerical integral for a given equation
@@ -196,7 +217,7 @@ impl GaussianConfig {
                 weight * self.get_gauss_laguerre(number_of_integrations, func, integration_limit);
         }
 
-        return ans;
+        ans
     }
 }
 
@@ -240,13 +261,13 @@ impl IntegratorSingleVariable for SingleVariableSolver {
 
         match self.integration_method {
             GaussianQuadratureMethod::GaussLegendre => {
-                return Ok(self.get_gauss_legendre(number_of_integrations, func, integration_limit))
+                Ok(self.get_gauss_legendre(number_of_integrations, func, integration_limit))
             }
             GaussianQuadratureMethod::GaussHermite => {
-                return Ok(self.get_gauss_hermite(number_of_integrations, func, integration_limit))
+                Ok(self.get_gauss_hermite(number_of_integrations, func, integration_limit))
             }
             GaussianQuadratureMethod::GaussLaguerre => {
-                return Ok(self.get_gauss_laguerre(number_of_integrations, func, integration_limit))
+                Ok(self.get_gauss_laguerre(number_of_integrations, func, integration_limit))
             }
         }
     }
@@ -262,17 +283,17 @@ pub struct MultiVariableSolver {
 impl Default for MultiVariableSolver {
     ///default constructor, optimal for most generic polynomial equations
     fn default() -> Self {
-        return MultiVariableSolver {
+        MultiVariableSolver {
             order: DEFAULT_QUADRATURE_ORDERS,
             integration_method: GaussianQuadratureMethod::GaussLegendre,
-        };
+        }
     }
 }
 
 impl MultiVariableSolver {
     ///returns the chosen number of nodes/order for quadrature
     pub fn get_order(&self) -> usize {
-        return self.order;
+        self.order
     }
 
     ///sets the number of nodes/order for quadrature
@@ -283,7 +304,7 @@ impl MultiVariableSolver {
     ///returns the chosen integration method
     /// possible choices are GaussLegendre, GaussHermite and GaussLaguerre
     pub fn get_integration_method(&self) -> GaussianQuadratureMethod {
-        return self.integration_method;
+        self.integration_method
     }
 
     ///sets the integration method
@@ -324,7 +345,7 @@ impl MultiVariableSolver {
             return Err(INCORRECT_NUMBER_OF_INTEGRATION_LIMITS);
         }
 
-        return Ok(());
+        Ok(())
     }
 
     /// returns the gauss legendre numerical integral for a given equation
@@ -358,7 +379,7 @@ impl MultiVariableSolver {
 
                 args[idx_to_integrate[0]] = abcsissa_coeff * abcsissa + intercept;
 
-                ans = ans + weight * func(&args);
+                ans += weight * func(&args);
             }
 
             return abcsissa_coeff * ans;
@@ -385,18 +406,17 @@ impl MultiVariableSolver {
             args[idx_to_integrate[number_of_integrations - 1]] =
                 abcsissa_coeff * abcsissa + intercept;
 
-            ans = ans
-                + weight
-                    * self.get_gauss_legendre(
-                        number_of_integrations - 1,
-                        idx_to_integrate,
-                        func,
-                        integration_limits,
-                        &args,
-                    );
+            ans += weight
+                * self.get_gauss_legendre(
+                    number_of_integrations - 1,
+                    idx_to_integrate,
+                    func,
+                    integration_limits,
+                    &args,
+                );
         }
 
-        return abcsissa_coeff * ans;
+        abcsissa_coeff * ans
     }
 
     /// returns the gauss hermite numerical integral for a given equation
@@ -458,7 +478,7 @@ impl MultiVariableSolver {
                 );
         }
 
-        return ans;
+        ans
     }
 
     /// returns the gauss laguerre numerical integral for a given equation
@@ -520,7 +540,7 @@ impl MultiVariableSolver {
                 );
         }
 
-        return ans;
+        ans
     }
 }
 
@@ -563,11 +583,28 @@ impl IntegratorMultiVariable for MultiVariableSolver {
     ) -> Result<f64, &'static str> {
         self.check_for_errors(number_of_integrations, integration_limits)?;
 
-impl<T> Default for GaussianSingle<T> {
-    fn default() -> Self {
-        GaussianSingle {
-            config: GaussianConfig::default(),
-            _marker: PhantomData,
+        match self.integration_method {
+            GaussianQuadratureMethod::GaussLegendre => Ok(self.get_gauss_legendre(
+                number_of_integrations,
+                idx_to_integrate,
+                func,
+                integration_limits,
+                point,
+            )),
+            GaussianQuadratureMethod::GaussHermite => Ok(self.get_gauss_hermite(
+                number_of_integrations,
+                idx_to_integrate,
+                func,
+                integration_limits,
+                point,
+            )),
+            GaussianQuadratureMethod::GaussLaguerre => Ok(self.get_gauss_laguerre(
+                number_of_integrations,
+                idx_to_integrate,
+                func,
+                integration_limits,
+                point,
+            )),
         }
     }
 }

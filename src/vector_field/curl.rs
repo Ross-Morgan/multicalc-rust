@@ -84,6 +84,6 @@ pub fn get_2d<D, const NUM_VARS: usize>(
 where
     D: DerivatorMultiVariable,
 {
-    return Ok(derivator.get(1, vector_field[1], &[0], point)?
-        - derivator.get(1, vector_field[0], &[1], point)?);
+    Ok(derivator.get(1, vector_field[1], &[0], point)?
+        - derivator.get(1, vector_field[0], &[1], point)?)
 }
