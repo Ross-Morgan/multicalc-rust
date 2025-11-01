@@ -3,8 +3,6 @@ use crate::numerical_integration::integrator::*;
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
 use crate::utils::error_codes::*;
 
-use const_poly::function_approximations;
-
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
 
 /// Configuration shared by the single- and multi-variable Gaussian integrators.
@@ -134,10 +132,7 @@ impl GaussianConfig {
                 )
                 .unwrap();
 
-                ans = ans
-                    + weight
-                        * func(abcsissa)
-                        * function_approximations::exp_approx(abcsissa * abcsissa);
+                ans += weight * func(abcsissa);
             }
 
             return ans;
@@ -153,9 +148,8 @@ impl GaussianConfig {
             )
             .unwrap();
 
-            ans = ans
-                + weight
-                    * self.get_gauss_hermite(number_of_integrations - 1, func, integration_limit);
+            ans += weight
+                * self.get_gauss_hermite(number_of_integrations - 1, func, integration_limit);
         }
 
         return ans;
@@ -182,8 +176,7 @@ impl GaussianConfig {
                 )
                 .unwrap();
 
-                ans =
-                    ans + (weight * func(abcsissa) * function_approximations::exp_approx(abcsissa));
+                ans += weight * func(abcsissa);
             }
 
             return ans;
@@ -199,10 +192,8 @@ impl GaussianConfig {
             )
             .unwrap();
 
-            //let args = (integration_limit[0][0] - integration_limit[0][1])*T::log(abcsissa - integration_limit[0][1], T::abs(T::exp(T::one()))) - abcsissa;
-
-            ans = ans
-                + weight * self.get_gauss_laguerre(number_of_integrations, func, integration_limit);
+            ans +=
+                weight * self.get_gauss_laguerre(number_of_integrations, func, integration_limit);
         }
 
         return ans;
@@ -437,7 +428,7 @@ impl MultiVariableSolver {
 
                 args[idx_to_integrate[0]] = abcsissa;
 
-                ans = ans + weight * func(&args);
+                ans += weight * func(&args);
             }
 
             return ans;
@@ -457,15 +448,14 @@ impl MultiVariableSolver {
 
             args[idx_to_integrate[number_of_integrations - 1]] = abcsissa;
 
-            ans = ans
-                + weight
-                    * self.get_gauss_legendre(
-                        number_of_integrations - 1,
-                        idx_to_integrate,
-                        func,
-                        integration_limits,
-                        &args,
-                    );
+            ans += weight
+                * self.get_gauss_hermite(
+                    number_of_integrations - 1,
+                    idx_to_integrate,
+                    func,
+                    integration_limits,
+                    &args,
+                );
         }
 
         return ans;
@@ -500,7 +490,7 @@ impl MultiVariableSolver {
 
                 args[idx_to_integrate[0]] = abcsissa;
 
-                ans = ans + weight * func(&args);
+                ans += weight * func(&args);
             }
 
             return ans;
@@ -520,15 +510,14 @@ impl MultiVariableSolver {
 
             args[idx_to_integrate[number_of_integrations - 1]] = abcsissa;
 
-            ans = ans
-                + weight
-                    * self.get_gauss_legendre(
-                        number_of_integrations - 1,
-                        idx_to_integrate,
-                        func,
-                        integration_limits,
-                        &args,
-                    );
+            ans += weight
+                * self.get_gauss_laguerre(
+                    number_of_integrations - 1,
+                    idx_to_integrate,
+                    func,
+                    integration_limits,
+                    &args,
+                );
         }
 
         return ans;

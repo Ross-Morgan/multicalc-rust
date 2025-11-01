@@ -150,6 +150,165 @@ fn test_gauss_legendre_quadrature_integration_3() {
     assert!(f64::abs(val - 24.0) < 1e-14);
 }
 
+/// ∫_{-∞}^{∞} e^{-x²} dx = √π ≈ 1.77245
+#[test]
+fn test_gauss_hermite_1() {
+    let integrator = gaussian_integration::SingleVariableSolver::from_parameters(
+        1,
+        GaussianQuadratureMethod::GaussHermite,
+    );
+
+    let func = |_x: f64| 1.0; // f(x) = 1
+    let bounds = [[-10.0, 10.0]];
+    let result = integrator.get(1, &func, &bounds).unwrap();
+    let expected = core::f64::consts::PI.sqrt();
+
+    assert!(
+        (result - expected).abs() < 1e-10,
+        " got {}, expected {}",
+        result,
+        expected
+    );
+}
+
+/// ∫_{-∞}^{∞} x² e^{-x²} dx = √π / 2 ≈ 0.88623
+#[test]
+fn test_gauss_hermite_2() {
+    let integrator = gaussian_integration::SingleVariableSolver::from_parameters(
+        2, // order for the quadrature
+        GaussianQuadratureMethod::GaussHermite,
+    );
+
+    let func = |x: f64| x * x;
+    let bounds = [[-10.0, 10.0]];
+    let result = integrator.get(1, &func, &bounds).unwrap();
+    let expected = core::f64::consts::PI.sqrt() / 2.0;
+
+    assert!(
+        (result - expected).abs() < 1e-5,
+        " got {}, expected {}",
+        result,
+        expected
+    );
+}
+
+/// ∫∫ e^{-(x² + y²)} dx dy = π
+#[test]
+fn test_gauss_hermite_3() {
+    let solver = gaussian_integration::MultiVariableSolver::from_parameters(
+        10, //order of the quadrature
+        GaussianQuadratureMethod::GaussHermite,
+    );
+
+    let func = |_xy: &[f64; 2]| 1.0; // f(x, y) = 1
+
+    let idx_to_integrate = [0, 1];
+    let limits = [[-10.0, 10.0], [-10.0, 10.0]];
+    let point = [0.0, 0.0];
+
+    let result = solver
+        .get(2, idx_to_integrate, &func, &limits, &point)
+        .unwrap();
+    let expected = core::f64::consts::PI;
+
+    assert!(
+        (result - expected).abs() < 1e-5,
+        " got {}, expected {}",
+        result,
+        expected
+    );
+}
+
+/// ∫₀^∞ e^{-x} dx = 1
+#[test]
+fn test_gauss_laguerre_1() {
+    let integrator = gaussian_integration::SingleVariableSolver::from_parameters(
+        1, // order for the quadrature
+        GaussianQuadratureMethod::GaussLaguerre,
+    );
+
+    let func = |_x: f64| 1.0; // f(x) = 1
+    let bounds = [[0.0, 10.0]];
+    let result = integrator.get(1, &func, &bounds).unwrap();
+    let expected = 1.0;
+
+    assert!(
+        (result - expected).abs() < 1e-5,
+        " got {}, expected {}",
+        result,
+        expected
+    );
+}
+
+/// ∫₀^∞ x e^{-x} dx = 1
+#[test]
+fn test_gauss_laguerre_2() {
+    let integrator = gaussian_integration::SingleVariableSolver::from_parameters(
+        1, // order for the quadrature
+        GaussianQuadratureMethod::GaussLaguerre,
+    );
+
+    let func = |x: f64| x;
+    let bounds = [[0.0, 10.0]];
+    let result = integrator.get(1, &func, &bounds).unwrap();
+    let expected = 1.0;
+
+    assert!(
+        (result - expected).abs() < 1e-5,
+        " got {}, expected {}",
+        result,
+        expected
+    );
+}
+
+/// ∫₀^∞ x² e^{-x} dx = 2
+#[test]
+fn test_gauss_laguerre_3() {
+    let integrator = gaussian_integration::SingleVariableSolver::from_parameters(
+        2, // order for the quadrature
+        GaussianQuadratureMethod::GaussLaguerre,
+    );
+
+    let func = |x: f64| x * x;
+    let bounds = [[0.0, 10.0]];
+    let result = integrator.get(1, &func, &bounds).unwrap();
+    let expected = 2.0;
+
+    assert!(
+        (result - expected).abs() < 1e-5,
+        " got {}, expected {}",
+        result,
+        expected
+    );
+}
+
+/// ∫₀^∞∫₀^∞ e^{-(x + y)} dx dy = 1
+#[test]
+fn test_gauss_laguerre_4() {
+    let solver = gaussian_integration::MultiVariableSolver::from_parameters(
+        10, // order for the quadrature
+        GaussianQuadratureMethod::GaussLaguerre,
+    );
+
+    let func = |_xy: &[f64; 2]| 1.0; // f(x, y) = 1
+
+    let idx_to_integrate = [0, 1];
+    let limits = [[0.0, 10.0], [0.0, 10.0]];
+    let point = [0.0, 0.0];
+
+    let result = solver
+        .get(2, idx_to_integrate, &func, &limits, &point)
+        .unwrap();
+    let expected = 1.0;
+
+    assert!(
+        (result - expected).abs() < 1e-5,
+        " got {}, expected {}",
+        result,
+        expected
+    );
+}
+
 #[test]
 fn test_simpsons_integration_1() {
     //equation is 2.0*x
@@ -333,7 +492,6 @@ fn test_trapezoidal_integration_4() {
     assert!(f64::abs(val - 8.0) < 0.00001);
 }
 
-
 // === ∫₀^∞ e^{-x} dx = 1 ===
 #[test]
 fn test_infinite_limits_single_variable_1() {
@@ -374,7 +532,7 @@ fn test_infinite_limits_single_variable_2() {
     ];
 
     let func = |x: f64| -> f64 {
-        return (-x*x).exp();
+        return (-x * x).exp();
     };
 
     let integration_limits = [f64::NEG_INFINITY, f64::INFINITY];
@@ -393,7 +551,6 @@ fn test_infinite_limits_single_variable_2() {
         );
     }
 }
-
 
 // === ∫₀^∞ (1 / (1 + x²)) dx = π/2 ===
 #[test]
@@ -425,7 +582,6 @@ fn test_infinite_limits_single_variable_3() {
     }
 }
 
-
 // === ∫₀^∞ ∫₀^∞ e^{-(x + y)} dx dy = 1 ===
 // (Product of two independent exp(-x) integrals, each = 1)
 #[test]
@@ -443,7 +599,9 @@ fn test_double_infinite_integrals_multivariable_1() {
 
     for method in methods {
         let iterator = iterative_integration::MultiVariableSolver::from_parameters(1000, method);
-        let result = iterator.get(2, idx_to_integrate, &func, &integration_limits, &point).unwrap();
+        let result = iterator
+            .get(2, idx_to_integrate, &func, &integration_limits, &point)
+            .unwrap();
 
         let expected = 1.0;
         assert!(
@@ -476,7 +634,9 @@ fn test_double_infinite_integrals_multivariable_2() {
 
     for method in methods {
         let iterator = iterative_integration::MultiVariableSolver::from_parameters(1000, method);
-        let result = iterator.get(2, idx_to_integrate, &func, &integration_limits, &point).unwrap();
+        let result = iterator
+            .get(2, idx_to_integrate, &func, &integration_limits, &point)
+            .unwrap();
 
         let expected = core::f64::consts::PI;
         assert!(
@@ -505,7 +665,9 @@ fn test_double_infinite_integrals_multivariable_3() {
 
     for method in methods {
         let iterator = iterative_integration::MultiVariableSolver::from_parameters(1000, method);
-        let result = iterator.get(2, idx_to_integrate, &func, &integration_limits, &point).unwrap();
+        let result = iterator
+            .get(2, idx_to_integrate, &func, &integration_limits, &point)
+            .unwrap();
 
         let expected = (core::f64::consts::FRAC_PI_2).powi(2);
         assert!(

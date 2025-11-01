@@ -574,7 +574,13 @@ impl<T: Numeric> IterativeMulti<T> {
             let inner_as_fn_of_x = |x: f64| {
                 let mut cur = *point;
                 cur[var_idx] = x;
-                self.get_booles(number_of_integrations - 1, idx_to_integrate, func, integration_limits, &cur)
+                self.get_booles(
+                    number_of_integrations - 1,
+                    idx_to_integrate,
+                    func,
+                    integration_limits,
+                    &cur,
+                )
             };
             get_domain_change_function_value(&inner_as_fn_of_x, &original_limit, t)
         };
@@ -597,8 +603,8 @@ impl<T: Numeric> IterativeMulti<T> {
         }
 
         ans += 7.0 * mapped_outer_integrand(transformed_upper_limit);
-        
-        return 2.0 * delta * ans / 45.0
+
+        return 2.0 * delta * ans / 45.0;
     }
 
     /// Returns the numerical integration via Simsons' 3/8th method
@@ -686,7 +692,13 @@ impl<T: Numeric> IterativeMulti<T> {
             let inner_as_fn_of_x = |x: f64| {
                 let mut cur = *point;
                 cur[var_idx] = x;
-                self.get_simpsons(number_of_integrations - 1, idx_to_integrate, func, integration_limits, &cur)
+                self.get_simpsons(
+                    number_of_integrations - 1,
+                    idx_to_integrate,
+                    func,
+                    integration_limits,
+                    &cur,
+                )
             };
 
             get_domain_change_function_value(&inner_as_fn_of_x, &original_limit, t)
@@ -702,7 +714,7 @@ impl<T: Numeric> IterativeMulti<T> {
         }
 
         ans += mapped_outer_integrand(transformed_upper_limit);
-        return 3.0 * delta * ans / 8.0
+        return 3.0 * delta * ans / 8.0;
     }
 
     /// Returns the numerical integration via Trapezoidal method
@@ -808,7 +820,7 @@ impl<T: Numeric> IterativeMulti<T> {
 
         ans += mapped_outer_integrand(transformed_upper_limit);
 
-        return 0.5 * delta * ans
+        return 0.5 * delta * ans;
     }
 }
 
