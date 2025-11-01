@@ -92,6 +92,6 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
             }
         }
 
-        return Ok(result);
+        Ok(result)
     }
 }

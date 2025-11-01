@@ -99,7 +99,7 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
             }
         }
 
-        return Ok(result);
+        Ok(result)
     }
 
     /// Same as [`Jacobian::get`] but returns a heap-allocated `Vec<Vec<_>>`, which avoids a
