@@ -153,22 +153,23 @@ pub trait IntegratorMultiVariable {
     }
 }
 
-/// Evaluates the transformed function value `f(x(t)) * dx/dt`
+/// @brief Computes the transformed function value `f(x(t)) * dx/dt`
 /// according to the correct domain-mapping rule.
 ///
-/// Mapping functions:
-/// 1. (-∞, ∞):  x = tan(π(t - ½)),     dx/dt = π / cos²(π(t - ½))
-/// 2. (a, ∞):   x = a + t/(1 - t),     dx/dt = 1 / (1 - t)²
-/// 3. (-∞, b):  x = b - t/(1 - t),     dx/dt = 1 / (1 - t)²
-/// 4. Finite (a, b):  x = t,           dx/dt = 1
+/// This transformation enables integration over infinite or semi-infinite domains
+/// by mapping them to a finite domain `[0, 1]`.
 ///
-/// # Arguments
-/// - `func`: the original function f(x)
-/// - `original_integration_limit`: `[a, b]` integration range, possibly infinite
-/// - `point`: current evaluation point `t` in the transformed finite domain [0, 1]
+/// **Mapping functions:**
+/// 1. (-∞, ∞):   x = tan(π(t - ½)),     dx/dt = π / cos²(π(t - ½))
+/// 2. (a, ∞):    x = a + t / (1 - t),   dx/dt = 1 / (1 - t)²
+/// 3. (-∞, b):   x = b - t / (1 - t),   dx/dt = 1 / (1 - t)²
+/// 4. Finite (a, b): x = t,             dx/dt = 1
 ///
-/// # Returns
-/// The function value in transformed domain: f(x(t)) * dx/dt
+/// @param func The original function `f(x)`.
+/// @param original_integration_limit The integration range `[a, b]`, possibly infinite.
+/// @param point The current evaluation point `t` in the transformed finite domain `[0, 1]`.
+///
+/// @return The transformed function value `f(x(t)) * dx/dt`.
 pub fn get_domain_change_function_value(
     func: &dyn Fn(f64) -> f64,
     original_integration_limit: &[f64; 2],
@@ -182,46 +183,48 @@ pub fn get_domain_change_function_value(
 
     if lower_limit.is_infinite() && upper_limit.is_infinite() {
         // (-∞, ∞)
-
         let x = tan_approx(PI * (point - 0.5));
         let jac = PI / static_powi(cos_approx(PI * (point - 0.5)), 2);
         func(x) * jac
     } else if lower_limit.is_finite() && upper_limit.is_infinite() {
-        // (lower_limit, ∞)
-
+        // (a, ∞)
         let x = lower_limit + point / (1.0 - point);
         let jac = 1.0 / static_powi(1.0 - point, 2);
         func(x) * jac
     } else if lower_limit.is_infinite() && upper_limit.is_finite() {
-        // (-∞, upper_limit)
-
+        // (-∞, b)
         let x = upper_limit - point / (1.0 - point);
         let jac = 1.0 / static_powi(1.0 - point, 2);
         func(x) * jac
     } else {
+        // Finite domain (a, b)
         func(point)
     }
 }
 
-/// Returns the transformed integration limits `(t0, t1)`
+/// @brief Returns the transformed integration limits `(t₀, t₁)`
 /// that map an infinite or semi-infinite domain to a finite one.
 ///
-/// Mapping rules:
+/// **Mapping rules:**
 /// - Finite (a, b): unchanged → (a, b)
 /// - Semi-infinite (a, ∞): t ∈ [0, 1)
 /// - Semi-infinite (-∞, b): t ∈ [0, 1)
 /// - Infinite (-∞, ∞): t ∈ [0, 1)
+///
+/// @param original_integration_limit The original integration limits `[a, b]`.
+///
+/// @return A tuple `(t₀, t₁)` representing the transformed finite domain.
 pub fn get_domain_change_limits(original_integration_limit: &[f64; 2]) -> (f64, f64) {
     let a = original_integration_limit[0];
     let b = original_integration_limit[1];
-
     const EPSILON: f64 = f64::EPSILON;
 
     if a.is_infinite() || b.is_infinite() {
-        // For all infinite forms, map into [0, 1]
-        (EPSILON, 1.0 - EPSILON) //don't actually map to [0,1] but very close to it, because evaluating at infinity gives undefined behavior
+        // For all infinite forms, map into [0, 1].
+        // Do not map exactly to 0 or 1 to avoid undefined behavior at infinities.
+        (EPSILON, 1.0 - EPSILON)
     } else {
-        // Finite range: leave unchanged
+        // Finite range: leave unchanged.
         (a, b)
     }
 }

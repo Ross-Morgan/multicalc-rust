@@ -86,8 +86,8 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
                         vector_of_points,
                     )?;
 
+                    // Exploit the fact that a Hessian is a symmetric matrix.
                     result[col_index][row_index] = result[row_index][col_index];
-                    //exploit the fact that a hessian is a symmetric matrix
                 }
             }
         }
