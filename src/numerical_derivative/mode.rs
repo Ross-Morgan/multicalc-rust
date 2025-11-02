@@ -1,18 +1,31 @@
-/// The finite-difference stencil used to approximate a derivative.
+/// @brief Finite difference modes for numerical differentiation.
 ///
-/// Central is the most accurate for most cases; start there and tweak the mode and step size
-/// if the result needs it.
+/// In most cases, `Central` is recommended for the highest accuracy.
+/// If unsure, start with `Central` and then tweak based on results.
+///
+/// @note The accuracy of results also depends on the chosen step size.
 #[derive(Debug, Copy, Clone)]
 pub enum FiniteDifferenceMode {
-    /// Samples at the point and one step forward.
+    /// @brief Forward difference method.
+    ///
+    /// Uses f'(x) ≈ (f(x + h) - f(x)) / h.
     Forward,
-    /// Samples at the point and one step backward.
+
+    /// @brief Backward difference method.
+    ///
+    /// Uses f'(x) ≈ (f(x) - f(x - h)) / h.
     Backward,
-    /// Samples one step either side of the point; most accurate.
+
+    /// @brief Central difference method.
+    ///
+    /// Uses f'(x) ≈ (f(x + h) - f(x - h)) / (2h).  
+    /// Provides the highest accuracy among finite difference schemes.
     Central,
 }
 
-/// Default finite-difference step size.
+/// @brief Default step size used by the finite difference module.
 pub const DEFAULT_STEP_SIZE: f64 = 1.0e-5;
-/// Default factor the step is scaled by at each recursion level (third derivatives and higher).
+
+/// @brief Default multiplier applied to the step size after each iteration.
+/// Primarily relevant for higher-order derivatives.
 pub const DEFAULT_STEP_SIZE_MULTIPLIER: f64 = 10.0;

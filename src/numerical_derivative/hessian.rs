@@ -1,13 +1,13 @@
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 
-///computes the hessian matrix for a given function
-/// Can handle single and multivariable equations of any complexity or size
+/// @brief Computes the Hessian matrix for a given function. It can handle single
+/// and multivariable equations of any complexity or size.
 pub struct Hessian<D: DerivatorMultiVariable> {
     derivator: D,
 }
 
 impl<D: DerivatorMultiVariable> Default for Hessian<D> {
-    ///the default constructor, optimal for most generic cases
+    /// @brief Default constructor, optimal for most generic cases.
     fn default() -> Self {
         Hessian {
             derivator: D::default(),
@@ -16,40 +16,56 @@ impl<D: DerivatorMultiVariable> Default for Hessian<D> {
 }
 
 impl<D: DerivatorMultiVariable> Hessian<D> {
-    ///custom constructor, optimal for fine tuning
+    /// @brief Custom constructor, optimal for fine-tuning.
+    ///
     /// You can create a custom multivariable derivator from this crate
-    /// or supply your own by implementing the base traits yourself
+    /// or supply your own by implementing the base traits yourself.
+    ///
+    /// @param derivator A custom instance implementing the `DerivatorMultiVariable` trait.
+    ///
+    /// @return A new `Hessian` instance using the provided derivator.
     pub fn from_derivator(derivator: D) -> Self {
         Hessian { derivator }
     }
 
-    /// Returns the hessian matrix for a given function
-    /// Can handle multivariable functions of any order or complexity
+    /// @brief Returns the Hessian matrix for a given function. It can handle
+    /// multivariable functions of any order or complexity.
     ///
-    /// The result is the symmetric matrix of second partial derivatives, so entry `[i][j]`
-    /// is `d²(function)/d(variable i) d(variable j)`. Only the upper triangle and diagonal
-    /// are evaluated; the rest is mirrored, relying on the symmetry of the Hessian.
+    /// The 2-D matrix returned has the structure:
     ///
-    /// # Arguments
-    /// * `function` - the scalar function to differentiate.
-    /// * `vector_of_points` - the point at which the derivatives are taken.
+    /// [[d²f/dx₁², d²f/dx₁dx₂, ... , d²f/dx₁dxₙ],
+    ///  [...                                 ...],
+    ///  [d²f/dxₙdx₁, d²f/dxₙdx₂, ... , d²f/dxₙ²]]
     ///
-    /// # Errors
-    /// [`CalcError::StepSizeZero`] if the derivator's step size is zero.
+    /// where `N` is the total number of variables.
     ///
-    /// # Examples
+    /// @tparam NUM_VARS The number of variables in the function.
+    /// @param function The target multivariable function.
+    /// @param vector_of_points The point at which the Hessian matrix should be evaluated.
+    ///
+    /// @return Result containing the symmetric Hessian matrix as `[[f64; NUM_VARS]; NUM_VARS]`,
+    /// or an error string if the computation fails.
+    ///
+    /// @note
+    /// Possible error codes include:
+    /// - `NUMBER_OF_DERIVATIVE_STEPS_CANNOT_BE_ZERO`: If the derivative step size is zero.
+    ///
+    /// @example
     /// ```
     /// use multicalc::numerical_derivative::finite_difference::FiniteDifferenceMulti;
     /// use multicalc::numerical_derivative::hessian::Hessian;
     ///
-    /// // f(x, y) = y*sin(x) + 2*x*e^y
-    /// let my_func = |args: &[f64; 2]| args[1] * args[0].sin() + 2.0 * args[0] * args[1].exp();
+    /// let my_func = |args: &[f64; 2]| -> f64 {
+    ///     args[1] * args[0].sin() + 2.0 * args[0] * args[1].exp()
+    /// };
+    ///
+    /// let points = [1.0, 2.0]; // The point around which we want the Hessian matrix.
+    /// let hessian = Hessian::<MultiVariableSolver>::default();
     ///
     /// let hessian = Hessian::<FiniteDifferenceMulti>::default();
     /// let result = hessian.get(&my_func, &[1.0, 2.0]).unwrap();
     /// assert!(f64::abs(result[0][0] - (-2.0 * f64::sin(1.0))) < 1e-5);
     /// ```
-    ///
     pub fn get<const NUM_VARS: usize>(
         &self,
         function: &dyn Fn(&[f64; NUM_VARS]) -> f64,
@@ -66,8 +82,8 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
                         vector_of_points,
                     )?;
 
+                    // Exploit the fact that a Hessian is a symmetric matrix.
                     result[col_index][row_index] = result[row_index][col_index];
-                    //exploit the fact that a hessian is a symmetric matrix
                 }
             }
         }

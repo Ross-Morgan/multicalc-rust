@@ -1,22 +1,37 @@
-/// The composite rule used by the iterative integrators.
+/// @brief Options for iterative integration methods. These are good generalist methods that will
+/// work for almost any type of equation. 
+/// 
+/// In most cases, `Trapezoidal` is recommended for the highest accuracy.
+/// If unsure, start with `Trapezoidal` and then tweak based on results.
+///
+/// @note The accuracy of results also depends on the chosen number of iterations.
 #[derive(Debug, Clone, Copy)]
 pub enum IterativeMethod {
-    /// Highest-order rule here; the most accurate generalist for smooth integrands.
+    /// @brief Good generalist method, but trapezoidal outperforms in most cases.
     Booles,
-    /// Intermediate order and accuracy.
+
+    /// @brief Least accurate. Needs a huge number of iterations to match other methods listed here.
     Simpsons,
-    /// Lowest order; simplest and a solid generalist.
+
+    /// @brief Highly accuracate, needs few iterations to converge, best generalist out of all options.
     Trapezoidal,
 }
 
-/// The Gaussian quadrature family used by the integrators. Each is most accurate for
-/// polynomial-like integrands over its fixed domain.
+
+/// @brief Options for gaussian quadrature methods. These are highly specialized methods, such that they
+/// are extremely accurate but only for a narrow use-case. Use these methods if you know the equation form ahead of time.
+/// 
+/// If unsure, start with `GaussLegendre` and then tweak based on results.
+///
+/// @note The accuracy of results also depends on the chosen number of quadratures/nodes.
 #[derive(Debug, Clone, Copy)]
 pub enum GaussianQuadratureMethod {
-    /// Integrates `f(x)` over a finite `[a, b]`.
+    /// @brief Extremely accurate, but only recommended for polynomial equations. A specialist method with a narrow use case.
     GaussLegendre,
-    /// Integrates `f(x) * e^{-x^2}` over the whole real line.
+
+    /// @brief Extremely accurate, but only recommended for integrands of the form ∫exp(-X*X)*f(X), where f(X) is a polynomial equations.
     GaussHermite,
-    /// Integrates `f(x) * e^{-x}` over `[0, +inf)`.
+
+    /// @brief Extremely accurate, but only recommended for integrands of the form ∫exp(-X)*f(X), where f(X) is a polynomial equations.
     GaussLaguerre,
 }

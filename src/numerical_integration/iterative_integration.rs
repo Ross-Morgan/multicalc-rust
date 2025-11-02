@@ -7,17 +7,15 @@ use crate::utils::error_codes::CalcError;
 
 pub const DEFAULT_TOTAL_ITERATIONS: u64 = 100;
 
-/// Configuration shared by the single- and multi-variable iterative integrators.
-#[derive(Debug, Clone, Copy)]
-pub struct IterativeConfig {
-    /// Number of intervals the composite rule walks. See [`DEFAULT_TOTAL_ITERATIONS`].
-    pub total_iterations: u64,
-    /// The composite rule to use: Booles, Simpsons or Trapezoidal.
-    pub integration_method: IterativeMethod,
+/// @brief Implements the iterative methods for numerical integration for single variable functions.
+#[derive(Clone, Copy)]
+pub struct SingleVariableSolver {
+    total_iterations: u64,
+    integration_method: IterativeMethod,
 }
 
-impl Default for IterativeConfig {
-    /// Boole's rule with [`DEFAULT_TOTAL_ITERATIONS`] intervals; optimal for most generic equations.
+impl Default for SingleVariableSolver {
+    /// @brief Default constructor, optimal for most generic equations.
     fn default() -> Self {
         SingleVariableSolver {
             total_iterations: DEFAULT_TOTAL_ITERATIONS,
@@ -27,29 +25,28 @@ impl Default for IterativeConfig {
 }
 
 impl SingleVariableSolver {
-    ///returns the total nuber of iterations
+    /// @brief Returns the total nuber of iterations.
     pub fn get_total_iterations(&self) -> u64 {
         self.total_iterations
     }
 
-    ///sets the total nuber of iterations
+    /// @brief Sets the total nuber of iterations.
     pub fn set_total_iterations(&mut self, total_iterations: u64) {
         self.total_iterations = total_iterations;
     }
 
-    ///returns the chosen integration method
-    /// choices are: Booles, Simpsons and Trapezoidal
+    /// @brief Returns the chosen integration method.
+    /// @note Possible choices are: Booles, Simpsons and Trapezoidal.
     pub fn get_integration_method(&self) -> IterativeMethod {
         self.integration_method
     }
 
-    ///sets the integration method
-    ///choices are: Booles, Simpsons and Trapezoidal
+    /// @brief Sets the integration method.
     pub fn set_integration_method(&mut self, integration_method: IterativeMethod) {
         self.integration_method = integration_method;
     }
 
-    ///custom constructor. Optimal for fine-tuning for more complex equations
+    /// @brief Custom constructor. Optimal for fine-tuning for more complex equations.
     pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
         SingleVariableSolver {
             total_iterations,
@@ -57,10 +54,8 @@ impl SingleVariableSolver {
         }
     }
 
-    /// Checks that the iteration count is non-zero and every limit is well-defined.
-    /// The iteration count is checked before the limits so a zero count reports
-    /// [`CalcError::IterationsZero`] regardless of the limits.
-    fn check_for_errors<T: Numeric, const NUM_INTEGRATIONS: usize>(
+    /// @brief Helper method to check if inputs are well defined.
+    fn check_for_errors<const NUM_INTEGRATIONS: usize>(
         &self,
         integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
     ) -> Result<(), CalcError> {
@@ -81,10 +76,10 @@ impl SingleVariableSolver {
         Ok(())
     }
 
-    ///returns the numerical integration via Booles' method
-    ///number_of_integrations: number of times the equation needs to be integrated
-    /// func: The function to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
+    /// @brief Returns the numerical integration via Booles' method.
+    /// @param number_of_integrations: number of times the equation needs to be integrated.
+    /// @param func: The function to integrate.
+    /// @integration_limit: the integration bound(s) for each round of integration.
     fn get_booles<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
@@ -146,10 +141,10 @@ impl SingleVariableSolver {
         2.0 * delta * ans / 45.0
     }
 
-    ///returns the numerical integration via Simsons 3/8th method
-    ///number_of_integrations: number of times the equation needs to be integrated
-    /// func: The function to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
+    /// @brief Returns the numerical integration via Simsons 3/8th method.
+    /// @param number_of_integrations: number of times the equation needs to be integrated.
+    /// @param func: The function to integrate.
+    /// @integration_limit: the integration bound(s) for each round of integration.
     fn get_simpsons<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
@@ -207,10 +202,10 @@ impl SingleVariableSolver {
         3.0 * delta * ans / 8.0
     }
 
-    ///returns the numerical integration via Trapezoidal method
-    ///number_of_integrations: number of times the equation needs to be integrated
-    /// func: The function to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
+    /// @brief Returns the numerical integration via Trapezoidal method.
+    /// @param number_of_integrations: number of times the equation needs to be integrated.
+    /// @param func: The function to integrate.
+    /// @integration_limit: the integration bound(s) for each round of integration.
     fn get_trapezoidal<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
@@ -254,181 +249,19 @@ impl SingleVariableSolver {
     }
 }
 
-/// Dispatches to the chosen rule, integrating `g` over `[lo, hi]` with `iterations`
-/// intervals. The caller decides the domain branch before building `g`, so a finite
-/// integral passes `func` straight through with no per-sample transform.
-fn integrate_rule<T: Numeric, G: FnMut(T) -> T>(
-    method: IterativeMethod,
-    iterations: u64,
-    lo: T,
-    hi: T,
-    g: G,
-) -> T {
-    match method {
-        IterativeMethod::Booles => booles(iterations, lo, hi, g),
-        IterativeMethod::Simpsons => simpsons(iterations, lo, hi, g),
-        IterativeMethod::Trapezoidal => trapezoidal(iterations, lo, hi, g),
-    }
-}
-
-/// Boole's composite rule over `[lo, hi]`.
-fn booles<T: Numeric, G: FnMut(T) -> T>(iterations: u64, lo: T, hi: T, mut g: G) -> T {
-    let delta = (hi - lo) / T::from_u64(iterations);
-    let mut point = lo;
-
-    let mut ans = T::from_f64(7.0) * g(point);
-    let mut multiplier = T::from_f64(32.0);
-
-    for iter in 0..iterations - 1 {
-        point += delta;
-        ans += multiplier * g(point);
-
-        if (iter + 2) % 2 != 0 {
-            multiplier = T::from_f64(32.0);
-        } else if (iter + 2) % 4 == 0 {
-            multiplier = T::from_f64(14.0);
-        } else {
-            multiplier = T::from_f64(12.0);
-        }
-    }
-
-    ans += T::from_f64(7.0) * g(hi);
-
-    T::TWO * delta * ans / T::from_f64(45.0)
-}
-
-/// Simpson's 3/8 composite rule over `[lo, hi]`.
-fn simpsons<T: Numeric, G: FnMut(T) -> T>(iterations: u64, lo: T, hi: T, mut g: G) -> T {
-    let delta = (hi - lo) / T::from_u64(iterations);
-    let mut point = lo;
-
-    let mut ans = g(point);
-    let mut multiplier = T::from_f64(3.0);
-
-    for iter in 0..iterations - 1 {
-        point += delta;
-        ans += multiplier * g(point);
-
-        if (iter + 2) % 3 == 0 {
-            multiplier = T::TWO;
-        } else {
-            multiplier = T::from_f64(3.0);
-        }
-    }
-
-    ans += g(hi);
-
-    T::from_f64(3.0) * delta * ans / T::from_f64(8.0)
-}
-
-/// Trapezoidal composite rule over `[lo, hi]`.
-fn trapezoidal<T: Numeric, G: FnMut(T) -> T>(iterations: u64, lo: T, hi: T, mut g: G) -> T {
-    let delta = (hi - lo) / T::from_u64(iterations);
-    let mut point = lo;
-
-    let mut ans = g(point);
-
-    for _ in 0..iterations - 1 {
-        point += delta;
-        ans += T::TWO * g(point);
-    }
-
-    ans += g(hi);
-
-    T::HALF * delta * ans
-}
-
-/// Implements the iterative methods for numerical integration for single variable functions
-#[derive(Debug, Clone, Copy)]
-pub struct IterativeSingle<T = f64> {
-    pub config: IterativeConfig,
-    _marker: PhantomData<T>,
-}
-
-impl<T> Default for IterativeSingle<T> {
-    fn default() -> Self {
-        IterativeSingle {
-            config: IterativeConfig::default(),
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T> IterativeSingle<T> {
-    /// custom constructor. Optimal for fine-tuning for more complex equations
-    pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
-        IterativeSingle {
-            config: IterativeConfig::from_parameters(total_iterations, integration_method),
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<T: Numeric> IterativeSingle<T> {
-    /// Integrates the `level`-th limit (1-based). Inner folds of a single-variable
-    /// integral are constant in the outer variable, so the inner result is computed
-    /// once and reused; an infinite outer limit weights it by `dx/dt`. A finite limit
-    /// skips the domain transform entirely.
-    fn integrate<F: Fn(T) -> T, const NUM_INTEGRATIONS: usize>(
-        &self,
-        level: usize,
-        func: &F,
-        integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
-    ) -> T {
-        let method = self.config.integration_method;
-        let iterations = self.config.total_iterations;
-
-        let domain = match classify(&integration_limit[level - 1]) {
-            Ok(d) => d,
-            Err(_) => return T::NAN, // limits validated in check_for_errors; unreachable
-        };
-
-        if level == 1 {
-            return match domain {
-                Domain::Finite(a, b) => integrate_rule(method, iterations, a, b, func),
-                _ => {
-                    let (lo, hi) = t_bounds(&domain);
-                    integrate_rule(method, iterations, lo, hi, |t| {
-                        let (x, jacobian) = map_sample(&domain, t);
-                        func(x) * jacobian
-                    })
-                }
-            };
-        }
-
-        let inner = self.integrate(level - 1, func, integration_limit);
-        match domain {
-            Domain::Finite(a, b) => integrate_rule(method, iterations, a, b, |_| inner),
-            _ => {
-                let (lo, hi) = t_bounds(&domain);
-                integrate_rule(method, iterations, lo, hi, |t| {
-                    let (_, jacobian) = map_sample(&domain, t);
-                    inner * jacobian
-                })
-            }
-        }
-    }
-}
-
-impl<T: Numeric> IntegratorSingleVariable for IterativeSingle<T> {
-    type Scalar = T;
-
-    /// Integrates `func`, once for each limit in `integration_limit` (so the array length
-    /// sets the number of integrations).
+impl IntegratorSingleVariable for SingleVariableSolver {
+    /// @brief Returns the numeric integration value for a single variable function.
+    /// @param number_of_integrations: number of times the equation needs to be integrated.
+    /// @param func: The function to integrate.
+    /// @param integration_limit: the integration bound(s) for each round of integration.
     ///
-    /// A limit may be finite, or use `f64::INFINITY` / `f64::NEG_INFINITY` for an infinite or
-    /// semi-infinite range. Infinite ranges are mapped onto a finite interval and are accurate
-    /// only for integrands that decay toward the infinite end.
+    /// @note: Returns a Result<f64, &'static str>,
+    /// where possible Err are:
+    /// INTEGRATION_CANNOT_HAVE_ZERO_ITERATIONS -> if number_of_integrations is zero
+    /// INTEGRATION_LIMITS_ILL_DEFINED -> if any integration_limit[i][0] >= integration_limit[i][1] for all possible i
+    /// INCORRECT_NUMBER_OF_INTEGRATION_LIMITS -> if size of integration_limit is not equal to number_of_integrations
     ///
-    /// # Arguments
-    /// * `func` - the function to integrate.
-    /// * `integration_limit` - the `[lower, upper]` limit for each level of integration.
-    ///
-    /// # Errors
-    /// [`CalcError::IterationsZero`] if the configured iteration count is zero, or
-    /// [`CalcError::IntegrationLimitsIllDefined`] if any limit is ill-defined.
-    ///
-    /// # Examples
+    /// @example Assume we want to integrate 2*x . the function would be:
     /// ```
     ///    let my_func = | arg: f64 | -> f64
     ///    {
@@ -474,14 +307,15 @@ impl<T: Numeric> IntegratorSingleVariable for IterativeSingle<T> {
     }
 }
 
-/// Implements the iterative methods for numerical integration for multi variable functions
-#[derive(Debug, Clone, Copy)]
-pub struct IterativeMulti<T = f64> {
-    pub config: IterativeConfig,
-    _marker: PhantomData<T>,
+/// @brief Implements the iterative methods for numerical integration for multi variable functions.
+#[derive(Clone, Copy)]
+pub struct MultiVariableSolver {
+    total_iterations: u64,
+    integration_method: IterativeMethod,
 }
 
-impl<T> Default for IterativeMulti<T> {
+impl Default for MultiVariableSolver {
+    /// @brief Default constructor, optimal for most generic equations.
     fn default() -> Self {
         MultiVariableSolver {
             total_iterations: DEFAULT_TOTAL_ITERATIONS,
@@ -491,29 +325,28 @@ impl<T> Default for IterativeMulti<T> {
 }
 
 impl MultiVariableSolver {
-    ///returns the total number of iterations
+    /// @brief Returns the total number of iterations.
     pub fn get_total_iterations(&self) -> u64 {
         self.total_iterations
     }
 
-    ///sets the total number of iterations
+    /// @brief Sets the total number of iterations.
     pub fn set_total_iterations(&mut self, total_iterations: u64) {
         self.total_iterations = total_iterations;
     }
 
-    ///returns the chosen integration method
-    /// choices are: Booles, Simpsons and Trapezoidal
+    /// @brief Returns the chosen integration method.
+    /// @note Possible choices are: Booles, Simpsons and Trapezoidal
     pub fn get_integration_method(&self) -> IterativeMethod {
         self.integration_method
     }
 
-    ///sets the integration method
-    /// choices are: Booles, Simpsons and Trapezoidal
+    /// @brief Sets the integration method.
     pub fn set_integration_method(&mut self, integration_method: IterativeMethod) {
         self.integration_method = integration_method;
     }
 
-    ///custom constructor, optimal for fine-tuning the integrator for more complex equations
+    /// @brief Custom constructor, optimal for fine-tuning the integrator for more complex equations.
     pub fn from_parameters(total_iterations: u64, integration_method: IterativeMethod) -> Self {
         MultiVariableSolver {
             total_iterations,
@@ -522,16 +355,8 @@ impl MultiVariableSolver {
     }
 }
 
-impl<T: Numeric> IterativeMulti<T> {
-    /// Integrates the `level`-th limit (1-based) of a partial integral. The sampled
-    /// abscissa is written into the integrated variable's slot before recursing, and
-    /// an infinite limit weights the whole inner integral by `dx/dt`. A finite limit
-    /// skips the domain transform entirely.
-    fn integrate<
-        F: Fn(&[T; NUM_VARS]) -> T,
-        const NUM_VARS: usize,
-        const NUM_INTEGRATIONS: usize,
-    >(
+    /// @brief Helper method to check if inputs are well defined.
+    fn check_for_errors<const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
@@ -553,12 +378,13 @@ impl<T: Numeric> IterativeMulti<T> {
         Ok(())
     }
 
-    ///returns the numerical integration via Booles' method
-    ///number_of_integrations: number of times the equation needs to be integrated
-    /// idx_to_integrate: the variables' index/indices that needs to be integrated
-    /// func: The function to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
-    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
+    /// @brief Returns the numerical integration via Booles' method.
+    /// @param number_of_integrations: number of times the equation needs to be integrated.
+    /// @param idx_to_integrate: the variables' index/indices that needs to be integrated.
+    /// @param func: The function to integrate.
+    /// @param integration_limit: the integration bound(s) for each round of integration.
+    /// @param point: for variables not being integrated, it is their constant value, otherwise
+    /// it is their final upper limit of integration.
     fn get_booles<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
@@ -672,12 +498,13 @@ impl<T: Numeric> IterativeMulti<T> {
         2.0 * delta * ans / 45.0
     }
 
-    /// Returns the numerical integration via Simsons' 3/8th method
-    /// number_of_integrations: number of times the equation needs to be integrated
-    /// idx_to_integrate: the variables' index/indices that needs to be integrated
-    /// func: The function to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
-    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
+    /// @brief Returns the numerical integration via Simsons' 3/8th method.
+    /// @param number_of_integrations: number of times the equation needs to be integrated.
+    /// @param idx_to_integrate: the variables' index/indices that needs to be integrated.
+    /// @param func: The function to integrate.
+    /// @param integration_limit: the integration bound(s) for each round of integration.
+    /// @param point: for variables not being integrated, it is their constant value, otherwise
+    /// it is their final upper limit of integration.
     fn get_simpsons<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
@@ -782,12 +609,13 @@ impl<T: Numeric> IterativeMulti<T> {
         3.0 * delta * ans / 8.0
     }
 
-    /// Returns the numerical integration via Trapezoidal method
-    /// number_of_integrations: number of times the equation needs to be integrated
-    /// idx_to_integrate: the variables' index/indices that needs to be integrated
-    /// func: The function to integrate
-    /// integration_limit: the integration bound(s) for each round of integration
-    /// point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
+    /// @brief Returns the numerical integration via Trapezoidal method.
+    /// @param number_of_integrations: number of times the equation needs to be integrated.
+    /// @param idx_to_integrate: the variables' index/indices that needs to be integrated.
+    /// @param func: The function to integrate.
+    /// @param integration_limit: the integration bound(s) for each round of integration.
+    /// @param point: for variables not being integrated, it is their constant value, otherwise
+    /// it is their final upper limit of integration.
     fn get_trapezoidal<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
         number_of_integrations: usize,
@@ -889,11 +717,14 @@ impl<T: Numeric> IterativeMulti<T> {
     }
 }
 
-impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
-    type Scalar = T;
-
-    /// Partially integrates `func` over the variables in `idx_to_integrate`, once for each
-    /// limit in `integration_limits` (so the array length sets the number of integrations).
+impl IntegratorMultiVariable for MultiVariableSolver {
+    /// @brief Returns the numeric integration value for a multi-variable function.
+    /// @param number_of_integrations: number of times the equation needs to be integrated
+    /// @param func: The function to integrate
+    /// @param idx_to_integrate: the variables' index/indices that needs to be integrated
+    /// @param func: The function to integrate
+    /// @param integration_limit: the integration bound(s) for each round of integration
+    /// @param point: for variables not being integrated, it is their constant value, otherwise it is their final upper limit of integration
     ///
     /// # Arguments
     /// * `idx_to_integrate` - the variable index integrated at each level.
@@ -902,11 +733,7 @@ impl<T: Numeric> IntegratorMultiVariable for IterativeMulti<T> {
     /// * `point` - the value of every variable. A variable being integrated holds its final
     ///   upper limit; a variable held constant holds that constant.
     ///
-    /// # Errors
-    /// [`CalcError::IterationsZero`] if the configured iteration count is zero, or
-    /// [`CalcError::IntegrationLimitsIllDefined`] if any limit is ill-defined.
-    ///
-    /// # Examples
+    /// @example Assume we want to integrate 2.0*x + y*z . the function would be:
     /// ```
     /// let func = | args: &[f64; 3] | -> f64
     ///{
