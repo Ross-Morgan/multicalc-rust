@@ -1,5 +1,5 @@
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
-use crate::utils::error_codes::*;
+use crate::utils::error_codes::CalcError;
 
 #[cfg(feature = "heap")]
 use std::{boxed::Box, vec::Vec};
@@ -85,18 +85,16 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
         vector_of_points: &[f64; NUM_VARS],
     ) -> Result<[[f64; NUM_VARS]; NUM_FUNCS], &'static str> {
         if function_matrix.is_empty() {
-            return Err(VECTOR_OF_FUNCTIONS_CANNOT_BE_EMPTY);
+            return Err(CalcError::EmptyFunctionSet);
         }
 
         let mut result = [[0.0; NUM_VARS]; NUM_FUNCS];
 
-        for row_index in 0..NUM_FUNCS {
-            for col_index in 0..NUM_VARS {
-                result[row_index][col_index] = self.derivator.get_single_partial(
-                    &function_matrix[row_index],
-                    col_index,
-                    vector_of_points,
-                )?;
+        for (func, row) in function_matrix.iter().zip(result.iter_mut()) {
+            for (col_index, slot) in row.iter_mut().enumerate() {
+                *slot = self
+                    .derivator
+                    .get_single_partial(func, col_index, vector_of_points)?;
             }
         }
 

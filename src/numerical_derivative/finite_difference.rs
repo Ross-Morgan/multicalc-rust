@@ -24,7 +24,7 @@ impl Default for SingleVariableSolver {
     fn default() -> Self {
         SingleVariableSolver {
             step_size: mode::DEFAULT_STEP_SIZE,
-            method: mode::FiniteDifferenceMode::Central,
+            method: FiniteDifferenceMode::Central,
             step_size_multiplier: mode::DEFAULT_STEP_SIZE_MULTIPLIER,
         }
     }
@@ -246,6 +246,7 @@ impl DerivatorSingleVariable for SingleVariableSolver {
                 Ok(self.get_central_difference_single_variable(order, func, point, self.step_size))
             }
         }
+        Ok(())
     }
 }
 
@@ -563,6 +564,76 @@ impl DerivatorMultiVariable for MultiVariableSolver {
                 self.step_size,
             )),
         }
+        self.config.check_step_size()?;
+        Ok(self.diff(order, func, point, self.config.step_size))
+    }
+}
+
+/// Finite-difference differentiator for multi-variable functions.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct FiniteDifferenceMulti {
+    pub config: FiniteDifferenceConfig,
+}
+
+impl FiniteDifferenceMulti {
+    /// Builds a differentiator with explicit parameters.
+    pub fn from_parameters(step: f64, method: FiniteDifferenceMode, multiplier: f64) -> Self {
+        FiniteDifferenceMulti {
+            config: FiniteDifferenceConfig::from_parameters(step, method, multiplier),
+        }
+    }
+
+    #[inline]
+    fn diff<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize, const NUM_ORDER: usize>(
+        &self,
+        order: usize,
+        func: &F,
+        idx_to_differentiate: &[usize; NUM_ORDER],
+        point: &[f64; NUM_VARS],
+        step: f64,
+    ) -> f64 {
+        let (lo, hi, denom) = offsets(self.config.method);
+        let var = idx_to_differentiate[order - 1];
+
+        let mut low_point = *point;
+        low_point[var] += lo * step;
+        let mut high_point = *point;
+        high_point[var] += hi * step;
+
+        if order == 1 {
+            return (func(&high_point) - func(&low_point)) / (denom * step);
+        }
+
+        let next = self.config.step_size_multiplier * step;
+        let low = self.diff(order - 1, func, idx_to_differentiate, &low_point, next);
+        let high = self.diff(order - 1, func, idx_to_differentiate, &high_point, next);
+        (high - low) / (denom * step)
+    }
+}
+
+impl DerivatorMultiVariable for FiniteDifferenceMulti {
+    fn get<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize, const NUM_ORDER: usize>(
+        &self,
+        func: &F,
+        idx_to_differentiate: &[usize; NUM_ORDER],
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, CalcError> {
+        if NUM_ORDER == 0 {
+            return Err(CalcError::DerivativeOrderZero);
+        }
+        self.config.check_step_size()?;
+        for &idx in idx_to_differentiate {
+            if idx >= NUM_VARS {
+                return Err(CalcError::IndexOutOfRange);
+            }
+        }
+        Ok(self.diff(
+            NUM_ORDER,
+            func,
+            idx_to_differentiate,
+            point,
+            self.config.step_size,
+        ))
     }
 }
 

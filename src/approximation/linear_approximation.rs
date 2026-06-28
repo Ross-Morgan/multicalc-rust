@@ -28,18 +28,18 @@ impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
     }
 
     /// The base point the approximation is centered on.
-    pub fn point(&self) -> &[T; NUM_VARS] {
+    pub fn point(&self) -> &[f64; NUM_VARS] {
         &self.point
     }
 
     /// The gradient at the base point. These are also the coefficients of the expanded
     /// linear form `intercept + Σ coefficients[i] * x[i]`.
-    pub fn coefficients(&self) -> &[T; NUM_VARS] {
+    pub fn coefficients(&self) -> &[f64; NUM_VARS] {
         &self.gradient
     }
 
     /// The intercept of the expanded form `intercept + Σ coefficients[i] * x[i]`.
-    pub fn intercept(&self) -> T {
+    pub fn intercept(&self) -> f64 {
         let mut intercept = self.value;
         for i in 0..NUM_VARS {
             intercept -= self.gradient[i] * self.point[i];
@@ -51,7 +51,7 @@ impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
     ///
     /// `r_squared` is `NaN` when the truth is constant over `points`;
     /// `adjusted_r_squared` is `NaN` when there are too few points.
-    pub fn get_prediction_metrics<O: Fn(&[T; NUM_VARS]) -> T, const NUM_POINTS: usize>(
+    pub fn get_prediction_metrics<O: Fn(&[f64; NUM_VARS]) -> f64, const NUM_POINTS: usize>(
         &self,
         points: &[[f64; NUM_VARS]; NUM_POINTS],
         original_function: &dyn Fn(&[f64; NUM_VARS]) -> f64,
@@ -98,11 +98,13 @@ impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
     }
 }
 
+/// Builds a [`LinearApproximation`] of a function, using any derivator that implements
+/// [`DerivatorMultiVariable`].
 pub struct LinearApproximator<D: DerivatorMultiVariable> {
     derivator: D,
 }
 
-impl<D: DerivatorMultiVariable> Default for LinearApproximator<D> {
+impl<D: DerivatorMultiVariable + Default> Default for LinearApproximator<D> {
     fn default() -> Self {
         LinearApproximator {
             derivator: D::default(),
@@ -111,12 +113,12 @@ impl<D: DerivatorMultiVariable> Default for LinearApproximator<D> {
 }
 
 impl<D: DerivatorMultiVariable> LinearApproximator<D> {
+    /// Builds an approximator from an explicit derivator.
     pub fn from_derivator(derivator: D) -> Self {
         LinearApproximator { derivator }
     }
 
-    /// For an n-dimensional approximation, the equation is linearized as:
-    /// coefficient[0]*var_1 + coefficient[1]*var_2 + ... + coefficient[n-1]*var_n + intercept
+    /// Builds a linear (first-order Taylor) approximation of `function` about `point`.
     ///
     /// # Errors
     /// [`CalcError::StepSizeZero`] if the derivator's step size is zero.

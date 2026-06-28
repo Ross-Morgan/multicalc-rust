@@ -1,9 +1,9 @@
 use crate::numerical_integration::iterative_integration::DEFAULT_TOTAL_ITERATIONS;
-use crate::utils::error_codes::*;
+use crate::utils::error_codes::CalcError;
 
 /// Builds the curve position [transformations[0](t), ..., transformations[N-1](t)].
-fn curve_point<T: Numeric, const N: usize>(transformations: &[&dyn Fn(T) -> T; N], t: T) -> [T; N] {
-    let mut point = [T::ZERO; N];
+fn curve_point<const N: usize>(transformations: &[&dyn Fn(f64) -> f64; N], t: f64) -> [f64; N] {
+    let mut point = [0.0; N];
     for i in 0..N {
         point[i] = transformations[i](t);
     }
@@ -12,13 +12,13 @@ fn curve_point<T: Numeric, const N: usize>(transformations: &[&dyn Fn(T) -> T; N
 
 /// Trapezoidal integration of the `idx`-th field component along the parametrized curve.
 /// Generic over the dimension `N`, so the 2D and 3D paths share one body.
-fn get_partial<T: Numeric, const N: usize>(
-    vector_field: &[&dyn Fn(&[T; N]) -> T; N],
-    transformations: &[&dyn Fn(T) -> T; N],
-    integration_limit: &[T; 2],
+fn get_partial<const N: usize>(
+    vector_field: &[&dyn Fn(&[f64; N]) -> f64; N],
+    transformations: &[&dyn Fn(f64) -> f64; N],
+    integration_limit: &[f64; 2],
     total_iterations: u64,
     idx: usize,
-) -> Result<T, CalcError> {
+) -> Result<f64, CalcError> {
     if total_iterations == 0 {
         return Err(CalcError::IterationsZero);
     }
@@ -30,9 +30,9 @@ fn get_partial<T: Numeric, const N: usize>(
         return Err(CalcError::IntegrationLimitsIllDefined);
     }
 
-    let delta = (integration_limit[1] - integration_limit[0]) / T::from_u64(total_iterations);
+    let delta = (integration_limit[1] - integration_limit[0]) / total_iterations as f64;
     let mut t = integration_limit[0];
-    let mut ans = T::ZERO;
+    let mut ans = 0.0;
 
     //use the trapezoidal rule for line integrals, caching the shared endpoint so each
     //curve point and field value is evaluated once per node rather than twice
@@ -44,7 +44,7 @@ fn get_partial<T: Numeric, const N: usize>(
         let right = curve_point(transformations, t + delta);
         let right_value = vector_field[idx](&right);
 
-        ans += (right[idx] - left[idx]) * (left_value + right_value) / T::TWO;
+        ans += (right[idx] - left[idx]) * (left_value + right_value) / 2.0;
 
         t += delta;
         left = right;

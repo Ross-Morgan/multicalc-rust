@@ -1,6 +1,6 @@
 /// @brief Options for iterative integration methods. These are good generalist methods that will
-/// work for almost any type of equation. 
-/// 
+/// work for almost any type of equation.
+///
 /// In most cases, `Trapezoidal` is recommended for the highest accuracy.
 /// If unsure, start with `Trapezoidal` and then tweak based on results.
 ///
@@ -17,10 +17,9 @@ pub enum IterativeMethod {
     Trapezoidal,
 }
 
-
 /// @brief Options for gaussian quadrature methods. These are highly specialized methods, such that they
 /// are extremely accurate but only for a narrow use-case. Use these methods if you know the equation form ahead of time.
-/// 
+///
 /// If unsure, start with `GaussLegendre` and then tweak based on results.
 ///
 /// @note The accuracy of results also depends on the chosen number of quadratures/nodes.

@@ -5,7 +5,9 @@ use crate::numerical_integration::integrator::*;
 use crate::numerical_integration::mode::IterativeMethod;
 use crate::utils::error_codes::CalcError;
 
-pub const DEFAULT_TOTAL_ITERATIONS: u64 = 100;
+/// Default interval count. A multiple of 12 so Boole (needs a multiple of 4) and
+/// Simpson 3/8 (needs a multiple of 3) both align with the composite-rule weights.
+pub const DEFAULT_TOTAL_ITERATIONS: u64 = 120;
 
 /// @brief Implements the iterative methods for numerical integration for single variable functions.
 #[derive(Clone, Copy)]
@@ -57,7 +59,7 @@ impl SingleVariableSolver {
     /// @brief Helper method to check if inputs are well defined.
     fn check_for_errors<const NUM_INTEGRATIONS: usize>(
         &self,
-        integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
+        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> Result<(), CalcError> {
         if self.total_iterations == 0 {
             return Err(CalcError::IterationsZero);
@@ -263,32 +265,27 @@ impl IntegratorSingleVariable for SingleVariableSolver {
     ///
     /// @example Assume we want to integrate 2*x . the function would be:
     /// ```
-    ///    let my_func = | arg: f64 | -> f64
-    ///    {
-    ///        return 2.0*arg;
-    ///    };
+    /// use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
+    /// use multicalc::numerical_integration::iterative_integration::IterativeSingle;
     ///
     /// let my_func = |x: f64| 2.0 * x;
     /// let integrator = IterativeSingle::default();
     ///
-    /// let integrator = iterative_integration::SingleVariableSolver::default();  
-    ///
-    /// let integration_limit = [[0.0, 2.0]; 1]; //desired integration limit
-    /// let val = integrator.get(1, &my_func, &integration_limit).unwrap(); //single integration
+    /// // single integration of 2x over [0, 2] is 4
+    /// let val = integrator.get(&my_func, &[[0.0, 2.0]; 1]).unwrap();
     /// assert!(f64::abs(val - 4.0) < 1e-6);
     ///
-    /// let integration_limit = [[0.0, 2.0], [-1.0, 1.0]]; //desired integration limits
-    /// let val = integrator.get(2, &my_func, &integration_limit).unwrap(); //double integration
+    /// // double integration over [0, 2] then [-1, 1] is 8
+    /// let val = integrator.get(&my_func, &[[0.0, 2.0], [-1.0, 1.0]]).unwrap();
     /// assert!(f64::abs(val - 8.0) < 1e-6);
     ///
-    /// let integration_limit = [[0.0, 2.0], [0.0, 2.0], [0.0, 2.0]]; //desired integration limits
-    /// let val = integrator.get(3, &my_func, &integration_limit).unwrap(); //triple integration
-    /// assert!(f64::abs(val - 16.0) < 1e-6);
-    ///```
-    fn get<const NUM_INTEGRATIONS: usize>(
+    /// // an infinite limit, for a decaying integrand: integral of e^(-x^2) over the real line is sqrt(pi)
+    /// let val = integrator.get(&|x| (-x * x).exp(), &[[f64::NEG_INFINITY, f64::INFINITY]]).unwrap();
+    /// assert!(f64::abs(val - std::f64::consts::PI.sqrt()) < 1e-6);
+    /// ```
+    fn get<F: Fn(f64) -> f64, const NUM_INTEGRATIONS: usize>(
         &self,
-        number_of_integrations: usize,
-        func: &dyn Fn(f64) -> f64,
+        func: &F,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> Result<f64, &'static str> {
         self.check_for_errors(number_of_integrations, integration_limit)?;
@@ -389,7 +386,7 @@ impl MultiVariableSolver {
         &self,
         number_of_integrations: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
+        func: &F,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> f64 {
@@ -735,26 +732,21 @@ impl IntegratorMultiVariable for MultiVariableSolver {
     ///
     /// @example Assume we want to integrate 2.0*x + y*z . the function would be:
     /// ```
-    /// let func = | args: &[f64; 3] | -> f64
-    ///{
-    ///    return 2.0*args[0] + args[1]*args[2];
-    ///};
+    /// use multicalc::numerical_integration::integrator::IntegratorMultiVariable;
+    /// use multicalc::numerical_integration::iterative_integration::IterativeMulti;
+    ///
+    /// // f(x, y, z) = 2x + yz, integrated over x in [0, 1] with (y, z) = (2, 3); result is 7
+    /// let func = |args: &[f64; 3]| 2.0 * args[0] + args[1] * args[2];
     /// let point = [1.0, 2.0, 3.0];
     /// let integrator = IterativeMulti::default();
     ///
-    /// use crate::multicalc::numerical_integration::integrator::*;
-    /// use multicalc::numerical_integration::iterative_integration;
-    ///
-    /// let integrator = iterative_integration::MultiVariableSolver::default();
-    ///
-    /// let integration_limit = [[0.0, 1.0]; 1]; //desired integation limit
-    /// let val = integrator.get(1, [0; 1], &func, &integration_limit, &point).unwrap();
+    /// let val = integrator.get([0; 1], &func, &[[0.0, 1.0]; 1], &point).unwrap();
     /// assert!(f64::abs(val - 7.0) < 1e-6);
     /// ```
-    fn get<F: Fn(&[T; NUM_VARS]) -> T, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
+    fn get<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
+        func: &F,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
     ) -> Result<f64, &'static str> {

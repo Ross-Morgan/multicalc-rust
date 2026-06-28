@@ -9,7 +9,7 @@ pub trait DerivatorSingleVariable: Default + Clone + Copy {
     /// @return The computed derivative value as `Ok(f64)` or an error message as `Err(&'static str)`
     ///         if the computation fails.
     fn get(&self, order: usize, func: &dyn Fn(f64) -> f64, point: f64)
-        -> Result<f64, &'static str>;
+    -> Result<f64, &'static str>;
 
     /// @brief Convenience wrapper for computing the first derivative.
     ///

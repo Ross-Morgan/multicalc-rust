@@ -68,10 +68,10 @@ pub trait IntegratorMultiVariable: Default + Clone + Copy {
     fn get<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
+        func: &F,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
-    ) -> Result<f64, &'static str>;
+    ) -> Result<f64, CalcError>;
 
     /// @brief Convenience wrapper for a single partial integral of a multi-variable function.
     ///
@@ -83,7 +83,7 @@ pub trait IntegratorMultiVariable: Default + Clone + Copy {
     /// @return Result containing the computed partial integral.
     fn get_single_partial<const NUM_VARS: usize>(
         &self,
-        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
+        func: &F,
         idx_to_integrate: usize,
         integration_limits: &[f64; 2],
         point: &[f64; NUM_VARS],
@@ -103,7 +103,7 @@ pub trait IntegratorMultiVariable: Default + Clone + Copy {
     /// @return Result containing the computed double partial integral.
     fn get_double_partial<const NUM_VARS: usize>(
         &self,
-        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
+        func: &F,
         idx_to_integrate: [usize; 2],
         integration_limits: &[[f64; 2]; 2],
         point: &[f64; NUM_VARS],

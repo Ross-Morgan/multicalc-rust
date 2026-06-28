@@ -1,4 +1,5 @@
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
+use crate::utils::error_codes::CalcError;
 
 /// @brief Computes the Hessian matrix for a given function. It can handle single
 /// and multivariable equations of any complexity or size.
@@ -73,6 +74,8 @@ impl<D: DerivatorMultiVariable> Hessian<D> {
     ) -> Result<[[f64; NUM_VARS]; NUM_VARS], &'static str> {
         let mut result = [[f64::NAN; NUM_VARS]; NUM_VARS];
 
+        // explicit indices are needed for the symmetric mirror write `result[col][row]`
+        #[allow(clippy::needless_range_loop)]
         for row_index in 0..NUM_VARS {
             for col_index in 0..NUM_VARS {
                 if result[row_index][col_index].is_nan() {

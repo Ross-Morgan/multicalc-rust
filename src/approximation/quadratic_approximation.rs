@@ -36,17 +36,17 @@ impl<const NUM_VARS: usize> QuadraticApproximationResult<NUM_VARS> {
     }
 
     /// The base point the approximation is centered on.
-    pub fn point(&self) -> &[T; NUM_VARS] {
+    pub fn point(&self) -> &[f64; NUM_VARS] {
         &self.point
     }
 
     /// The gradient at the base point.
-    pub fn gradient(&self) -> &[T; NUM_VARS] {
+    pub fn gradient(&self) -> &[f64; NUM_VARS] {
         &self.gradient
     }
 
     /// The Hessian matrix at the base point.
-    pub fn hessian(&self) -> &[[T; NUM_VARS]; NUM_VARS] {
+    pub fn hessian(&self) -> &[[f64; NUM_VARS]; NUM_VARS] {
         &self.hessian
     }
 
@@ -54,7 +54,7 @@ impl<const NUM_VARS: usize> QuadraticApproximationResult<NUM_VARS> {
     ///
     /// `r_squared` is `NaN` when the truth is constant over `points`;
     /// `adjusted_r_squared` is `NaN` when there are too few points.
-    pub fn get_prediction_metrics<O: Fn(&[T; NUM_VARS]) -> T, const NUM_POINTS: usize>(
+    pub fn get_prediction_metrics<O: Fn(&[f64; NUM_VARS]) -> f64, const NUM_POINTS: usize>(
         &self,
         points: &[[f64; NUM_VARS]; NUM_POINTS],
         original_function: &dyn Fn(&[f64; NUM_VARS]) -> f64,
@@ -105,11 +105,13 @@ impl<const NUM_VARS: usize> QuadraticApproximationResult<NUM_VARS> {
     }
 }
 
+/// Builds a [`QuadraticApproximation`] of a function, using any derivator that implements
+/// [`DerivatorMultiVariable`].
 pub struct QuadraticApproximator<D: DerivatorMultiVariable> {
     derivator: D,
 }
 
-impl<D: DerivatorMultiVariable> Default for QuadraticApproximator<D> {
+impl<D: DerivatorMultiVariable + Default> Default for QuadraticApproximator<D> {
     fn default() -> Self {
         QuadraticApproximator {
             derivator: D::default(),
@@ -118,14 +120,12 @@ impl<D: DerivatorMultiVariable> Default for QuadraticApproximator<D> {
 }
 
 impl<D: DerivatorMultiVariable> QuadraticApproximator<D> {
+    /// Builds an approximator from an explicit derivator.
     pub fn from_derivator(derivator: D) -> Self {
         QuadraticApproximator { derivator }
     }
 
-    /// For an n-dimensional approximation, the equation is approximated as I + L + Q, where:
-    /// I = intercept
-    /// L = linear_coefficients[0]*var_1 + linear_coefficients[1]*var_2 + ... + linear_coefficients[n-1]*var_n
-    /// Q = quadratic_coefficients[0][0]*var_1*var_1 + quadratic_coefficients[0][1]*var_1*var_2 + ... + quadratic_coefficients[n-1][n-1]*var_n*var_n
+    /// Builds a quadratic (second-order Taylor) approximation of `function` about `point`.
     ///
     /// # Errors
     /// [`CalcError::StepSizeZero`] if the derivator's step size is zero.

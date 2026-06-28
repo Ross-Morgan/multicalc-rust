@@ -3,6 +3,7 @@ use crate::numerical_integration::integrator::*;
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
 use crate::utils::error_codes::*;
 
+/// Default quadrature order (number of nodes).
 pub const DEFAULT_QUADRATURE_ORDERS: usize = 4;
 
 /// @brief Implements the Gaussian quadrature methods for numerical integration for single-variable functions.
@@ -233,7 +234,6 @@ impl SingleVariableSolver {
     }
 }
 
-
 impl IntegratorSingleVariable for SingleVariableSolver {
     /// @brief Computes the Gaussian quadrature numerical integration for a single-variable function.
     ///
@@ -348,7 +348,6 @@ impl MultiVariableSolver {
     /// @return `Ok(())` if valid; otherwise an error string.
     fn check_for_errors<const NUM_INTEGRATIONS: usize>(
         &self,
-        number_of_integrations: usize,
         integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
     ) -> Result<(), &'static str> {
         if !(1..=gauss_tables::MAX_GAUSS_TABLE_ORDER).contains(&self.order) {
@@ -376,7 +375,7 @@ impl MultiVariableSolver {
     /// @param idx_to_integrate The index/indices of variable to integrate.
     /// @param func Function to integrate.
     /// @param integration_limit Integration limits for each round of integration.
-    /// @param point For variables not being integrated, it is their constant value, otherwise it is 
+    /// @param point For variables not being integrated, it is their constant value, otherwise it is
     /// their final upper limit of integration.
     /// @return The computed integral value.
     fn get_gauss_legendre<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
@@ -453,7 +452,7 @@ impl MultiVariableSolver {
     /// @param idx_to_integrate The index/indices of variable to integrate.
     /// @param func Function to integrate.
     /// @param integration_limit Integration limits for each round of integration.
-    /// @param point For variables not being integrated, it is their constant value, otherwise it is 
+    /// @param point For variables not being integrated, it is their constant value, otherwise it is
     /// their final upper limit of integration.
     /// @return The computed integral value.
     fn get_gauss_hermite<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
@@ -520,7 +519,7 @@ impl MultiVariableSolver {
     /// @param idx_to_integrate The index/indices of variable to integrate.
     /// @param func Function to integrate.
     /// @param integration_limit Integration limits for each round of integration.
-    /// @param point For variables not being integrated, it is their constant value, otherwise it is 
+    /// @param point For variables not being integrated, it is their constant value, otherwise it is
     /// their final upper limit of integration.
     /// @return The computed integral value.
     fn get_gauss_laguerre<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
@@ -582,16 +581,16 @@ impl MultiVariableSolver {
 
 impl IntegratorMultiVariable for MultiVariableSolver {
     /// @brief Computes the Gaussian quadrature numerical integration for a multivariable function.
-    /// 
+    ///
     /// @tparam NUM_VARS Number of variables in the multivariable equation.
     /// @tparam NUM_INTEGRATIONS Number of nested integrations.
     /// @param number_of_integrations Number of integrations to perform.
     /// @param idx_to_integrate The index/indices of variable to integrate.
     /// @param func Function to integrate.
     /// @param integration_limit Integration limits for each round of integration.
-    /// @param point For variables not being integrated, it is their constant value, otherwise it is 
+    /// @param point For variables not being integrated, it is their constant value, otherwise it is
     /// their final upper limit of integration.
-    /// 
+    ///
     /// @return Result containing the computed integral value, or an error message.
     ///
     /// @note Possible errors:
@@ -600,31 +599,172 @@ impl IntegratorMultiVariable for MultiVariableSolver {
     ///
     /// @example Assume we want to differentiate f(x,y,z) = 2.0*x + y*z. the function would be:
     /// ```
-    ///    let my_func = | args: &[f64; 3] | -> f64
-    ///    {
-    ///        return 2.0*args[0] + args[1]*args[2];
-    ///    };
+    /// use multicalc::numerical_integration::integrator::IntegratorSingleVariable;
+    /// use multicalc::numerical_integration::gaussian_integration::GaussianSingle;
     ///
-    /// use multicalc::numerical_integration::integrator::*;
-    /// use multicalc::numerical_integration::gaussian_integration;
-    ///
-    /// let integrator = gaussian_integration::MultiVariableSolver::default();
-    /// let point = [1.0, 2.0, 3.0];
-    ///
-    /// let integration_limit = [[0.0, 1.0]; 1];
-    /// let val = integrator.get(1, [0; 1], &my_func, &integration_limit, &point).unwrap(); //single integration for x
-    /// assert!(f64::abs(val - 7.0) < 1e-7);
-    ///
-    ///```
-    fn get<const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
+    /// // Gauss-Legendre is exact for polynomials: integral of 4x^3 - 3x^2 over [0, 2] is 8
+    /// let my_func = |x: f64| 4.0 * x * x * x - 3.0 * x * x;
+    /// let integrator = GaussianSingle::default();
+    /// let val = integrator.get(&my_func, &[[0.0, 2.0]; 1]).unwrap();
+    /// assert!(f64::abs(val - 8.0) < 1e-7);
+    /// ```
+    fn get<F: Fn(f64) -> f64, const NUM_INTEGRATIONS: usize>(
         &self,
-        number_of_integrations: usize,
+        func: &F,
+        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
+    ) -> Result<f64, CalcError> {
+        let table = nodes(self.config.integration_method, self.config.order)?;
+        self.config.check_limits(integration_limit)?;
+
+        Ok(match self.config.integration_method {
+            GaussianQuadratureMethod::GaussLegendre => {
+                self.integrate_legendre(NUM_INTEGRATIONS, table, func, integration_limit)
+            }
+            _ => self.integrate_canonical(NUM_INTEGRATIONS, table, func),
+        })
+    }
+}
+
+/// Implements the gaussian quadrature methods for numerical integration for multi variable functions
+#[derive(Debug, Clone, Copy, Default)]
+pub struct GaussianMulti {
+    pub config: GaussianConfig,
+}
+
+impl GaussianMulti {
+    /// custom constructor, optimal for fine-tuning for specific cases
+    pub fn from_parameters(order: usize, integration_method: GaussianQuadratureMethod) -> Self {
+        GaussianMulti {
+            config: GaussianConfig::from_parameters(order, integration_method),
+        }
+    }
+
+    /// Gauss-Legendre partial integration over a finite `[a, b]`. The affine-mapped node is
+    /// written into the integrated variable's slot before recursing; the inner fold depends
+    /// on the outer node, so it is recomputed for each one.
+    fn integrate_legendre<
+        F: Fn(&[f64; NUM_VARS]) -> f64,
+        const NUM_VARS: usize,
+        const NUM_INTEGRATIONS: usize,
+    >(
+        &self,
+        level: usize,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
-        func: &dyn Fn(&[f64; NUM_VARS]) -> f64,
+        table: &'static [(f64, f64)],
+        func: &F,
         integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
         point: &[f64; NUM_VARS],
-    ) -> Result<f64, &'static str> {
-        self.check_for_errors(number_of_integrations, integration_limits)?;
+    ) -> f64 {
+        let a = integration_limits[level - 1][0];
+        let b = integration_limits[level - 1][1];
+        let half = (b - a) / 2.0;
+        let mid = (b + a) / 2.0;
+        let var = idx_to_integrate[level - 1];
+
+        let mut current = *point;
+        let mut ans = 0.0;
+
+        if level == 1 {
+            for &(weight, abscissa) in table {
+                current[var] = half * abscissa + mid;
+                ans += weight * func(&current);
+            }
+            return half * ans;
+        }
+
+        for &(weight, abscissa) in table {
+            current[var] = half * abscissa + mid;
+            ans += weight
+                * self.integrate_legendre(
+                    level - 1,
+                    idx_to_integrate,
+                    table,
+                    func,
+                    integration_limits,
+                    &current,
+                );
+        }
+        half * ans
+    }
+
+    /// Gauss-Hermite / Gauss-Laguerre partial integration over the fixed domain. The node is
+    /// written into the integrated variable's slot as-is (no map, no exponential factor) and
+    /// the recursion stays in the same method.
+    fn integrate_canonical<
+        F: Fn(&[f64; NUM_VARS]) -> f64,
+        const NUM_VARS: usize,
+        const NUM_INTEGRATIONS: usize,
+    >(
+        &self,
+        level: usize,
+        idx_to_integrate: [usize; NUM_INTEGRATIONS],
+        table: &'static [(f64, f64)],
+        func: &F,
+        point: &[f64; NUM_VARS],
+    ) -> f64 {
+        let var = idx_to_integrate[level - 1];
+
+        let mut current = *point;
+        let mut ans = 0.0;
+
+        if level == 1 {
+            for &(weight, abscissa) in table {
+                current[var] = abscissa;
+                ans += weight * func(&current);
+            }
+            return ans;
+        }
+
+        for &(weight, abscissa) in table {
+            current[var] = abscissa;
+            ans += weight
+                * self.integrate_canonical(level - 1, idx_to_integrate, table, func, &current);
+        }
+        ans
+    }
+}
+
+impl IntegratorMultiVariable for GaussianMulti {
+    /// Partially integrates `func` by Gaussian quadrature over the variables in
+    /// `idx_to_integrate`, once for each limit in `integration_limits` (so the array length
+    /// sets the number of integrations).
+    ///
+    /// The integrand is passed bare; the tabulated weights carry the implicit weighting
+    /// function (see [`GaussianSingle`] for the per-method domains and integral forms).
+    ///
+    /// # Arguments
+    /// * `idx_to_integrate` - the variable index integrated at each level.
+    /// * `func` - the bare integrand.
+    /// * `integration_limits` - the limit for each level; each must match the method's domain.
+    /// * `point` - the value of every variable. A variable being integrated holds its final
+    ///   upper limit; a variable held constant holds that constant.
+    ///
+    /// # Errors
+    /// [`CalcError::QuadratureOrderOutOfRange`] if the configured order is unsupported, or
+    /// [`CalcError::IntegrationLimitsIllDefined`] if any limit does not match the method's domain.
+    ///
+    /// # Examples
+    /// ```
+    /// use multicalc::numerical_integration::integrator::IntegratorMultiVariable;
+    /// use multicalc::numerical_integration::gaussian_integration::GaussianMulti;
+    ///
+    /// // f(x, y, z) = 2x + yz, integrated over x in [0, 1] with (y, z) = (2, 3); result is 7
+    /// let my_func = |args: &[f64; 3]| 2.0 * args[0] + args[1] * args[2];
+    /// let integrator = GaussianMulti::default();
+    /// let point = [1.0, 2.0, 3.0];
+    ///
+    /// let val = integrator.get([0; 1], &my_func, &[[0.0, 1.0]; 1], &point).unwrap();
+    /// assert!(f64::abs(val - 7.0) < 1e-7);
+    /// ```
+    fn get<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
+        &self,
+        idx_to_integrate: [usize; NUM_INTEGRATIONS],
+        func: &F,
+        integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
+        point: &[f64; NUM_VARS],
+    ) -> Result<f64, CalcError> {
+        let table = nodes(self.config.integration_method, self.config.order)?;
+        self.config.check_limits(integration_limits)?;
 
         match self.integration_method {
             GaussianQuadratureMethod::GaussLegendre => Ok(self.get_gauss_legendre(
