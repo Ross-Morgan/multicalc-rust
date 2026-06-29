@@ -29,15 +29,12 @@ use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 /// ```
 pub fn get_3d<D, const NUM_VARS: usize>(
     derivator: D,
-    vector_field: &[&dyn Fn(&[f64; NUM_VARS]) -> f64; 3],
-    point: &[f64; NUM_VARS],
-) -> Result<f64, &'static str>
-where
-    D: DerivatorMultiVariable,
-{
-    Ok(derivator.get(1, vector_field[0], &[0], point)?
-        + derivator.get(1, vector_field[1], &[1], point)?
-        + derivator.get(1, vector_field[2], &[2], point)?)
+    vector_field: &[&dyn Fn(&[D::Scalar; NUM_VARS]) -> D::Scalar; 3],
+    point: &[D::Scalar; NUM_VARS],
+) -> Result<D::Scalar, CalcError> {
+    Ok(derivator.get_single_partial(&vector_field[0], 0, point)?
+        + derivator.get_single_partial(&vector_field[1], 1, point)?
+        + derivator.get_single_partial(&vector_field[2], 2, point)?)
 }
 
 /// Computes the divergence of a 2D vector field at a point.
@@ -68,12 +65,9 @@ where
 /// ```
 pub fn get_2d<D, const NUM_VARS: usize>(
     derivator: D,
-    vector_field: &[&dyn Fn(&[f64; NUM_VARS]) -> f64; 2],
-    point: &[f64; NUM_VARS],
-) -> Result<f64, &'static str>
-where
-    D: DerivatorMultiVariable,
-{
-    Ok(derivator.get(1, vector_field[0], &[0], point)?
-        + derivator.get(1, vector_field[1], &[1], point)?)
+    vector_field: &[&dyn Fn(&[D::Scalar; NUM_VARS]) -> D::Scalar; 2],
+    point: &[D::Scalar; NUM_VARS],
+) -> Result<D::Scalar, CalcError> {
+    Ok(derivator.get_single_partial(&vector_field[0], 0, point)?
+        + derivator.get_single_partial(&vector_field[1], 1, point)?)
 }

@@ -1,45 +1,55 @@
+use crate::numeric::Numeric;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use const_poly::function_approximations;
 
-#[derive(Debug)]
-pub struct LinearApproximationResult<const NUM_VARS: usize> {
-    pub intercept: f64,
-    pub coefficients: [f64; NUM_VARS],
+/// A first-order (linear) Taylor approximation of a function about a base point:
+/// `f(x) ≈ value + Σ gradient[i] * (x[i] - point[i])`.
+#[derive(Debug, Clone, Copy)]
+pub struct LinearApproximation<const NUM_VARS: usize, T = f64> {
+    point: [T; NUM_VARS],
+    value: T,
+    gradient: [T; NUM_VARS],
 }
 
-#[derive(Debug)]
-pub struct LinearApproximationPredictionMetrics {
-    pub mean_absolute_error: f64,
-    pub mean_squared_error: f64,
-    pub root_mean_squared_error: f64,
-    pub r_squared: f64,
-    pub adjusted_r_squared: f64,
+/// Goodness-of-fit metrics for a [`LinearApproximation`] over a set of sample points.
+#[derive(Debug, Clone, Copy)]
+pub struct LinearApproximationPredictionMetrics<T = f64> {
+    /// Mean absolute error.
+    pub mean_absolute_error: T,
+    /// Mean squared error.
+    pub mean_squared_error: T,
+    /// Root mean squared error.
+    pub root_mean_squared_error: T,
+    /// Coefficient of determination; `NaN` when the truth is constant over the points.
+    pub r_squared: T,
+    /// R² adjusted for the number of predictors; `NaN` when there are too few points.
+    pub adjusted_r_squared: T,
 }
 
-impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
-    ///Helper function if you don't care about the details and just want the predictor directly
-    pub fn get_prediction_value(&self, args: &[f64; NUM_VARS]) -> f64 {
-        let mut result = self.intercept;
-        for (iter, arg) in args.iter().enumerate().take(NUM_VARS) {
-            result += self.coefficients[iter] * *arg;
+impl<const NUM_VARS: usize, T: Numeric> LinearApproximation<NUM_VARS, T> {
+    /// Evaluates the approximation at `x`.
+    pub fn predict(&self, x: &[T; NUM_VARS]) -> T {
+        let mut result = self.value;
+        for ((&g, &xi), &pi) in self.gradient.iter().zip(x).zip(&self.point) {
+            result += g * (xi - pi);
         }
 
         result
     }
 
     /// The base point the approximation is centered on.
-    pub fn point(&self) -> &[f64; NUM_VARS] {
+    pub fn point(&self) -> &[T; NUM_VARS] {
         &self.point
     }
 
     /// The gradient at the base point. These are also the coefficients of the expanded
     /// linear form `intercept + Σ coefficients[i] * x[i]`.
-    pub fn coefficients(&self) -> &[f64; NUM_VARS] {
+    pub fn coefficients(&self) -> &[T; NUM_VARS] {
         &self.gradient
     }
 
     /// The intercept of the expanded form `intercept + Σ coefficients[i] * x[i]`.
-    pub fn intercept(&self) -> f64 {
+    pub fn intercept(&self) -> T {
         let mut intercept = self.value;
         for i in 0..NUM_VARS {
             intercept -= self.gradient[i] * self.point[i];
@@ -51,42 +61,17 @@ impl<const NUM_VARS: usize> LinearApproximationResult<NUM_VARS> {
     ///
     /// `r_squared` is `NaN` when the truth is constant over `points`;
     /// `adjusted_r_squared` is `NaN` when there are too few points.
-    pub fn get_prediction_metrics<O: Fn(&[f64; NUM_VARS]) -> f64, const NUM_POINTS: usize>(
+    pub fn get_prediction_metrics<O: Fn(&[T; NUM_VARS]) -> T, const NUM_POINTS: usize>(
         &self,
-        points: &[[f64; NUM_VARS]; NUM_POINTS],
-        original_function: &dyn Fn(&[f64; NUM_VARS]) -> f64,
-    ) -> LinearApproximationPredictionMetrics {
-        //let num_points = NUM_POINTS as f64;
-        let mut mae = 0.0;
-        let mut mse = 0.0;
-
-        for point in points.iter().take(NUM_POINTS) {
-            let predicted_y = self.get_prediction_value(point);
-
-            mae += predicted_y - original_function(point);
-            mse += function_approximations::static_powi(predicted_y - original_function(point), 2);
-        }
-
-        mae /= NUM_POINTS as f64;
-        mse /= NUM_POINTS as f64;
-
-        let rmse = function_approximations::sqrt_approx(mse).abs();
-
-        let mut r2_numerator = 0.0;
-        let mut r2_denominator = 0.0;
-
-        for point in points.iter().take(NUM_POINTS) {
-            let predicted_y = self.get_prediction_value(point);
-
-            r2_numerator +=
-                function_approximations::static_powi(predicted_y - original_function(point), 2);
-            r2_denominator = r2_numerator
-                + function_approximations::static_powi(mae - original_function(point), 2);
-        }
-
-        let r2 = 1.0 - (r2_numerator / r2_denominator);
-
-        let r2_adj = 1.0 - (1.0 - r2) * (NUM_POINTS as f64) / ((NUM_POINTS as f64) - 2.0);
+        points: &[[T; NUM_VARS]; NUM_POINTS],
+        original_function: &O,
+    ) -> LinearApproximationPredictionMetrics<T> {
+        let (mae, mse, rmse, r_squared, adjusted_r_squared) = crate::approximation::compute_metrics(
+            |x| self.predict(x),
+            points,
+            original_function,
+            NUM_VARS, // p = N linear coefficients
+        );
 
         LinearApproximationPredictionMetrics {
             mean_absolute_error: mae.abs(),

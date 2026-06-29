@@ -1,34 +1,50 @@
+use crate::numeric::Numeric;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::numerical_derivative::hessian::Hessian;
 use const_poly::function_approximations;
 
-#[derive(Debug)]
-pub struct QuadraticApproximationResult<const NUM_VARS: usize> {
-    pub intercept: f64,
-    pub linear_coefficients: [f64; NUM_VARS],
-    pub quadratic_coefficients: [[f64; NUM_VARS]; NUM_VARS],
+/// A second-order (quadratic) Taylor approximation of a function about a base point:
+/// `f(x) ≈ value + Σ gradient[i]·dx[i] + ½ Σ_i Σ_j hessian[i][j]·dx[i]·dx[j]`,
+/// where `dx[i] = x[i] - point[i]`.
+#[derive(Debug, Clone, Copy)]
+pub struct QuadraticApproximation<const NUM_VARS: usize, T = f64> {
+    point: [T; NUM_VARS],
+    value: T,
+    gradient: [T; NUM_VARS],
+    hessian: [[T; NUM_VARS]; NUM_VARS],
 }
 
-#[derive(Debug)]
-pub struct QuadraticApproximationPredictionMetrics {
-    pub mean_absolute_error: f64,
-    pub mean_squared_error: f64,
-    pub root_mean_squared_error: f64,
-    pub r_squared: f64,
-    pub adjusted_r_squared: f64,
+/// Goodness-of-fit metrics for a [`QuadraticApproximation`] over a set of sample points.
+#[derive(Debug, Clone, Copy)]
+pub struct QuadraticApproximationPredictionMetrics<T = f64> {
+    /// Mean absolute error.
+    pub mean_absolute_error: T,
+    /// Mean squared error.
+    pub mean_squared_error: T,
+    /// Root mean squared error.
+    pub root_mean_squared_error: T,
+    /// Coefficient of determination; `NaN` when the truth is constant over the points.
+    pub r_squared: T,
+    /// R² adjusted for the number of predictors; `NaN` when there are too few points.
+    pub adjusted_r_squared: T,
 }
 
-///Helper functions if you don't care about the details and just want the predictor directly
-impl<const NUM_VARS: usize> QuadraticApproximationResult<NUM_VARS> {
-    pub fn get_prediction_value(&self, args: &[f64; NUM_VARS]) -> f64 {
-        let mut result = self.intercept;
-
-        for (i, arg) in args.iter().enumerate().take(NUM_VARS) {
-            result += self.linear_coefficients[i] * *arg;
-        }
-        for i in 0..NUM_VARS {
-            for j in 1..NUM_VARS {
-                result += self.quadratic_coefficients[i][j] * args[i] * args[j];
+impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
+    /// Evaluates the approximation at `x`. The `½` keeps the quadratic term correct for
+    /// both diagonal and off-diagonal Hessian entries.
+    pub fn predict(&self, x: &[T; NUM_VARS]) -> T {
+        let mut result = self.value;
+        for (((&gi, &xi), &pi), hrow) in self
+            .gradient
+            .iter()
+            .zip(x)
+            .zip(&self.point)
+            .zip(&self.hessian)
+        {
+            let di = xi - pi;
+            result += gi * di;
+            for ((&hij, &xj), &pj) in hrow.iter().zip(x).zip(&self.point) {
+                result += T::HALF * hij * di * (xj - pj);
             }
         }
 
@@ -36,17 +52,17 @@ impl<const NUM_VARS: usize> QuadraticApproximationResult<NUM_VARS> {
     }
 
     /// The base point the approximation is centered on.
-    pub fn point(&self) -> &[f64; NUM_VARS] {
+    pub fn point(&self) -> &[T; NUM_VARS] {
         &self.point
     }
 
     /// The gradient at the base point.
-    pub fn gradient(&self) -> &[f64; NUM_VARS] {
+    pub fn gradient(&self) -> &[T; NUM_VARS] {
         &self.gradient
     }
 
     /// The Hessian matrix at the base point.
-    pub fn hessian(&self) -> &[[f64; NUM_VARS]; NUM_VARS] {
+    pub fn hessian(&self) -> &[[T; NUM_VARS]; NUM_VARS] {
         &self.hessian
     }
 
@@ -54,14 +70,13 @@ impl<const NUM_VARS: usize> QuadraticApproximationResult<NUM_VARS> {
     ///
     /// `r_squared` is `NaN` when the truth is constant over `points`;
     /// `adjusted_r_squared` is `NaN` when there are too few points.
-    pub fn get_prediction_metrics<O: Fn(&[f64; NUM_VARS]) -> f64, const NUM_POINTS: usize>(
+    pub fn get_prediction_metrics<O: Fn(&[T; NUM_VARS]) -> T, const NUM_POINTS: usize>(
         &self,
-        points: &[[f64; NUM_VARS]; NUM_POINTS],
-        original_function: &dyn Fn(&[f64; NUM_VARS]) -> f64,
-    ) -> QuadraticApproximationPredictionMetrics {
-        //let num_points = points.len() as f64;
-        let mut mae = 0.0;
-        let mut mse = 0.0;
+        points: &[[T; NUM_VARS]; NUM_POINTS],
+        original_function: &O,
+    ) -> QuadraticApproximationPredictionMetrics<T> {
+        // p = N gradient terms + N(N+1)/2 distinct (symmetric) Hessian terms
+        let num_predictors = NUM_VARS + NUM_VARS * (NUM_VARS + 1) / 2;
 
         let (mae, mse, rmse, r_squared, adjusted_r_squared) = crate::approximation::compute_metrics(
             |x| self.predict(x),

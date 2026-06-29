@@ -1,3 +1,4 @@
+use crate::numeric::Numeric;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::utils::error_codes::CalcError;
 
@@ -81,14 +82,14 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     /// ```
     pub fn get<const NUM_FUNCS: usize, const NUM_VARS: usize>(
         &self,
-        function_matrix: &[&dyn Fn(&[f64; NUM_VARS]) -> f64; NUM_FUNCS],
-        vector_of_points: &[f64; NUM_VARS],
-    ) -> Result<[[f64; NUM_VARS]; NUM_FUNCS], &'static str> {
+        function_matrix: &[&dyn Fn(&[D::Scalar; NUM_VARS]) -> D::Scalar; NUM_FUNCS],
+        vector_of_points: &[D::Scalar; NUM_VARS],
+    ) -> Result<[[D::Scalar; NUM_VARS]; NUM_FUNCS], CalcError> {
         if function_matrix.is_empty() {
             return Err(CalcError::EmptyFunctionSet);
         }
 
-        let mut result = [[0.0; NUM_VARS]; NUM_FUNCS];
+        let mut result = [[<D::Scalar as Numeric>::ZERO; NUM_VARS]; NUM_FUNCS];
 
         for (func, row) in function_matrix.iter().zip(result.iter_mut()) {
             for (col_index, slot) in row.iter_mut().enumerate() {
@@ -101,7 +102,8 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
         Ok(result)
     }
 
-    /// @brief Heap-allocated version of [Jacobian::get].
+    /// Same as [`Jacobian::get`] but returns a heap-allocated `Vec<Vec<_>>`, which avoids a
+    /// stack overflow on large inputs. Requires the `alloc` feature (off by default).
     ///
     /// Uses heap-allocated vectors to compute the Jacobian matrix,
     /// reducing stack usage for large systems. Enable the `"heap"` feature
@@ -149,18 +151,17 @@ impl<D: DerivatorMultiVariable> Jacobian<D> {
     #[cfg(feature = "heap")]
     pub fn get_on_heap<const NUM_VARS: usize>(
         &self,
-        function_matrix: &Vec<Box<dyn Fn(&[f64; NUM_VARS]) -> f64>>,
-        vector_of_points: &[f64; NUM_VARS],
-    ) -> Result<Vec<Vec<f64>>, &'static str> {
+        function_matrix: &[Box<dyn Fn(&[D::Scalar; NUM_VARS]) -> D::Scalar>],
+        vector_of_points: &[D::Scalar; NUM_VARS],
+    ) -> Result<Vec<Vec<D::Scalar>>, CalcError> {
         if function_matrix.is_empty() {
             return Err(CalcError::EmptyFunctionSet);
         }
 
-        let num_funcs = function_matrix.len();
-        let mut result: Vec<Vec<f64>> = Vec::new();
+        let mut result: Vec<Vec<D::Scalar>> = Vec::new();
 
-        for row_index in 0..num_funcs {
-            let mut cur_row: Vec<f64> = Vec::new();
+        for func in function_matrix {
+            let mut cur_row: Vec<D::Scalar> = Vec::new();
             for col_index in 0..NUM_VARS {
                 cur_row.push(self.derivator.get_single_partial(
                     func,

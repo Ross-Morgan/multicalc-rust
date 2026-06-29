@@ -1,5 +1,8 @@
-use crate::gaussian_tables::gauss_tables;
-use crate::numerical_integration::integrator::*;
+use core::marker::PhantomData;
+
+use crate::gaussian_tables::nodes;
+use crate::numeric::Numeric;
+use crate::numerical_integration::integrator::{IntegratorMultiVariable, IntegratorSingleVariable};
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
 use crate::utils::error_codes::*;
 
@@ -60,18 +63,26 @@ impl SingleVariableSolver {
 
     /// @brief Validates the input parameters and integration limits.
     ///
-    /// @tparam NUM_INTEGRATIONS Number of nested integrations.
-    /// @param number_of_integrations The number of integrations to perform.
-    /// @param integration_limit Integration limits for each integration stage.
-    /// @return `Ok(())` if valid; otherwise an error string.
-    fn check_for_errors<const NUM_INTEGRATIONS: usize>(
+    /// Gauss-Legendre integrates over a finite `[a, b]`; Gauss-Hermite over `(-inf, +inf)`;
+    /// Gauss-Laguerre over `[0, +inf)`. The canonical domain is required (not ignored) so a
+    /// mismatched limit cannot silently return a wrong result. `NaN` comparisons are false and
+    /// are therefore rejected.
+    fn check_limits<T: Numeric, const NUM_INTEGRATIONS: usize>(
         &self,
-        number_of_integrations: usize,
-        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
-    ) -> Result<(), &'static str> {
-        if !(1..=gauss_tables::MAX_GAUSS_TABLE_ORDER).contains(&self.order) {
-            return Err(GAUSSIAN_QUADRATURE_ORDER_OUT_OF_RANGE);
-        }
+        integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
+    ) -> Result<(), CalcError> {
+        for limit in integration_limit {
+            let ok = match self.integration_method {
+                GaussianQuadratureMethod::GaussLegendre => {
+                    limit[0].is_finite() && limit[1].is_finite() && limit[0] < limit[1]
+                }
+                GaussianQuadratureMethod::GaussHermite => {
+                    limit[0] == T::NEG_INFINITY && limit[1] == T::INFINITY
+                }
+                GaussianQuadratureMethod::GaussLaguerre => {
+                    limit[0] == T::ZERO && limit[1] == T::INFINITY
+                }
+            };
 
         for &limit in integration_limit {
             if limit[0] >= limit[1] {
@@ -86,101 +97,89 @@ impl SingleVariableSolver {
         Ok(())
     }
 
-    /// @brief Computes the integral using **Gauss–Legendre quadrature**.
-    ///
-    /// @tparam NUM_INTEGRATIONS Number of nested integrations.
-    /// @param number_of_integrations Number of integrations to perform.
-    /// @param func Function to integrate.
-    /// @param integration_limit Integration limits for each round of integration.
-    /// @return The computed integral value.
-    fn get_gauss_legendre<const NUM_INTEGRATIONS: usize>(
+/// Implements the gaussian quadrature methods for numerical integration for single variable functions
+#[derive(Debug, Clone, Copy)]
+pub struct GaussianSingle<T = f64> {
+    pub config: GaussianConfig,
+    _marker: PhantomData<T>,
+}
+
+impl<T> Default for GaussianSingle<T> {
+    fn default() -> Self {
+        GaussianSingle {
+            config: GaussianConfig::default(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<T> GaussianSingle<T> {
+    /// custom constructor, optimal for fine-tuning for specific cases
+    pub fn from_parameters(order: usize, integration_method: GaussianQuadratureMethod) -> Self {
+        GaussianSingle {
+            config: GaussianConfig::from_parameters(order, integration_method),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<T: Numeric> GaussianSingle<T> {
+    /// Gauss-Legendre over a finite `[a, b]`: nodes (defined on `[-1, 1]`) are affine-mapped
+    /// by `(b-a)/2 * x + (b+a)/2` and the result scaled by `(b-a)/2`. Inner folds of a
+    /// single-variable integral are constant in the outer variable, so the inner result is
+    /// computed once and reused. Each tabulated `(weight, abscissa)` is converted to `T` in place.
+    fn integrate_legendre<F: Fn(T) -> T, const NUM_INTEGRATIONS: usize>(
         &self,
-        number_of_integrations: usize,
-        func: &dyn Fn(f64) -> f64,
-        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
-    ) -> f64 {
-        if number_of_integrations == 1 {
-            let mut ans = 0.0;
-            let abscissa_coeff = (integration_limit[0][1] - integration_limit[0][0]) / 2.0;
-            let intercept = (integration_limit[0][1] + integration_limit[0][0]) / 2.0;
+        level: usize,
+        table: &'static [(f64, f64)],
+        func: &F,
+        integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
+    ) -> T {
+        let a = integration_limit[level - 1][0];
+        let b = integration_limit[level - 1][1];
+        let half = (b - a) * T::HALF;
+        let mid = (b + a) * T::HALF;
 
-            for iter in 0..self.order {
-                let (weight, abscissa) = gauss_tables::get_weight_and_abscissa(
-                    GaussianQuadratureMethod::GaussLegendre,
-                    self.order,
-                    iter,
-                )
-                .unwrap();
-
-                let args = abscissa_coeff * abscissa + intercept;
-                ans += weight * func(args);
+        if level == 1 {
+            let mut ans = T::ZERO;
+            for &(weight, abscissa) in table {
+                ans += T::from_f64(weight) * func(half * T::from_f64(abscissa) + mid);
             }
 
             return abscissa_coeff * ans;
         }
 
-        let mut ans = 0.0;
-        let abscissa_coeff = (integration_limit[number_of_integrations - 1][1]
-            - integration_limit[number_of_integrations - 1][0])
-            / 2.0;
-
-        for iter in 0..self.order {
-            let (weight, _) = gauss_tables::get_weight_and_abscissa(
-                GaussianQuadratureMethod::GaussLegendre,
-                self.order,
-                iter,
-            )
-            .unwrap();
-
-            ans += weight
-                * self.get_gauss_legendre(number_of_integrations - 1, func, integration_limit);
+        let inner = self.integrate_legendre(level - 1, table, func, integration_limit);
+        let mut ans = T::ZERO;
+        for &(weight, _) in table {
+            ans += T::from_f64(weight) * inner;
         }
 
         abscissa_coeff * ans
     }
 
-    /// @brief Computes the integral using **Gauss–Hermite quadrature**.
-    ///
-    /// @tparam NUM_INTEGRATIONS Number of nested integrations.
-    /// @param number_of_integrations Number of integrations to perform.
-    /// @param func Function to integrate.
-    /// @param _integration_limit Ignored integration limits, currently only integrates from -infinity to +infinity.
-    /// @return The computed integral value.
-    fn get_gauss_hermite<const NUM_INTEGRATIONS: usize>(
+    /// Gauss-Hermite / Gauss-Laguerre over their fixed domain: nodes are used as-is with no
+    /// affine map and no exponential factor, since the tabulated weights already carry the
+    /// `e^{-x^2}` / `e^{-x}` weighting function.
+    fn integrate_canonical<F: Fn(T) -> T>(
         &self,
-        number_of_integrations: usize,
-        func: &dyn Fn(f64) -> f64,
-        _integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
-    ) -> f64 {
-        if number_of_integrations == 1 {
-            let mut ans = 0.0;
-
-            for iter in 0..self.order {
-                let (weight, abscissa) = gauss_tables::get_weight_and_abscissa(
-                    GaussianQuadratureMethod::GaussHermite,
-                    self.order,
-                    iter,
-                )
-                .unwrap();
-
-                ans += weight * func(abscissa);
+        level: usize,
+        table: &'static [(f64, f64)],
+        func: &F,
+    ) -> T {
+        if level == 1 {
+            let mut ans = T::ZERO;
+            for &(weight, abscissa) in table {
+                ans += T::from_f64(weight) * func(T::from_f64(abscissa));
             }
 
             return ans;
         }
 
-        let mut ans = 0.0;
-
-        for iter in 0..self.order {
-            let (weight, _) = gauss_tables::get_weight_and_abscissa(
-                GaussianQuadratureMethod::GaussHermite,
-                self.order,
-                iter,
-            )
-            .unwrap();
-
-            ans += weight
-                * self.get_gauss_hermite(number_of_integrations - 1, func, _integration_limit);
+        let inner = self.integrate_canonical(level - 1, table, func);
+        let mut ans = T::ZERO;
+        for &(weight, _) in table {
+            ans += T::from_f64(weight) * inner;
         }
 
         ans
@@ -234,8 +233,11 @@ impl SingleVariableSolver {
     }
 }
 
-impl IntegratorSingleVariable for SingleVariableSolver {
-    /// @brief Computes the Gaussian quadrature numerical integration for a single-variable function.
+impl<T: Numeric> IntegratorSingleVariable for GaussianSingle<T> {
+    type Scalar = T;
+
+    /// Integrates `func` by Gaussian quadrature, once for each limit in `integration_limit`
+    /// (so the array length sets the number of integrations).
     ///
     /// @tparam NUM_INTEGRATIONS Number of nested integrations.
     /// @param number_of_integrations Number of integrations to perform.
@@ -608,11 +610,11 @@ impl IntegratorMultiVariable for MultiVariableSolver {
     /// let val = integrator.get(&my_func, &[[0.0, 2.0]; 1]).unwrap();
     /// assert!(f64::abs(val - 8.0) < 1e-7);
     /// ```
-    fn get<F: Fn(f64) -> f64, const NUM_INTEGRATIONS: usize>(
+    fn get<F: Fn(T) -> T, const NUM_INTEGRATIONS: usize>(
         &self,
         func: &F,
-        integration_limit: &[[f64; 2]; NUM_INTEGRATIONS],
-    ) -> Result<f64, CalcError> {
+        integration_limit: &[[T; 2]; NUM_INTEGRATIONS],
+    ) -> Result<T, CalcError> {
         let table = nodes(self.config.integration_method, self.config.order)?;
         self.config.check_limits(integration_limit)?;
 
@@ -626,24 +628,37 @@ impl IntegratorMultiVariable for MultiVariableSolver {
 }
 
 /// Implements the gaussian quadrature methods for numerical integration for multi variable functions
-#[derive(Debug, Clone, Copy, Default)]
-pub struct GaussianMulti {
+#[derive(Debug, Clone, Copy)]
+pub struct GaussianMulti<T = f64> {
     pub config: GaussianConfig,
+    _marker: PhantomData<T>,
 }
 
-impl GaussianMulti {
+impl<T> Default for GaussianMulti<T> {
+    fn default() -> Self {
+        GaussianMulti {
+            config: GaussianConfig::default(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<T> GaussianMulti<T> {
     /// custom constructor, optimal for fine-tuning for specific cases
     pub fn from_parameters(order: usize, integration_method: GaussianQuadratureMethod) -> Self {
         GaussianMulti {
             config: GaussianConfig::from_parameters(order, integration_method),
+            _marker: PhantomData,
         }
     }
+}
 
+impl<T: Numeric> GaussianMulti<T> {
     /// Gauss-Legendre partial integration over a finite `[a, b]`. The affine-mapped node is
     /// written into the integrated variable's slot before recursing; the inner fold depends
     /// on the outer node, so it is recomputed for each one.
     fn integrate_legendre<
-        F: Fn(&[f64; NUM_VARS]) -> f64,
+        F: Fn(&[T; NUM_VARS]) -> T,
         const NUM_VARS: usize,
         const NUM_INTEGRATIONS: usize,
     >(
@@ -652,29 +667,29 @@ impl GaussianMulti {
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
         table: &'static [(f64, f64)],
         func: &F,
-        integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
-        point: &[f64; NUM_VARS],
-    ) -> f64 {
+        integration_limits: &[[T; 2]; NUM_INTEGRATIONS],
+        point: &[T; NUM_VARS],
+    ) -> T {
         let a = integration_limits[level - 1][0];
         let b = integration_limits[level - 1][1];
-        let half = (b - a) / 2.0;
-        let mid = (b + a) / 2.0;
+        let half = (b - a) * T::HALF;
+        let mid = (b + a) * T::HALF;
         let var = idx_to_integrate[level - 1];
 
         let mut current = *point;
-        let mut ans = 0.0;
+        let mut ans = T::ZERO;
 
         if level == 1 {
             for &(weight, abscissa) in table {
-                current[var] = half * abscissa + mid;
-                ans += weight * func(&current);
+                current[var] = half * T::from_f64(abscissa) + mid;
+                ans += T::from_f64(weight) * func(&current);
             }
             return half * ans;
         }
 
         for &(weight, abscissa) in table {
-            current[var] = half * abscissa + mid;
-            ans += weight
+            current[var] = half * T::from_f64(abscissa) + mid;
+            ans += T::from_f64(weight)
                 * self.integrate_legendre(
                     level - 1,
                     idx_to_integrate,
@@ -691,7 +706,7 @@ impl GaussianMulti {
     /// written into the integrated variable's slot as-is (no map, no exponential factor) and
     /// the recursion stays in the same method.
     fn integrate_canonical<
-        F: Fn(&[f64; NUM_VARS]) -> f64,
+        F: Fn(&[T; NUM_VARS]) -> T,
         const NUM_VARS: usize,
         const NUM_INTEGRATIONS: usize,
     >(
@@ -700,31 +715,33 @@ impl GaussianMulti {
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
         table: &'static [(f64, f64)],
         func: &F,
-        point: &[f64; NUM_VARS],
-    ) -> f64 {
+        point: &[T; NUM_VARS],
+    ) -> T {
         let var = idx_to_integrate[level - 1];
 
         let mut current = *point;
-        let mut ans = 0.0;
+        let mut ans = T::ZERO;
 
         if level == 1 {
             for &(weight, abscissa) in table {
-                current[var] = abscissa;
-                ans += weight * func(&current);
+                current[var] = T::from_f64(abscissa);
+                ans += T::from_f64(weight) * func(&current);
             }
             return ans;
         }
 
         for &(weight, abscissa) in table {
-            current[var] = abscissa;
-            ans += weight
+            current[var] = T::from_f64(abscissa);
+            ans += T::from_f64(weight)
                 * self.integrate_canonical(level - 1, idx_to_integrate, table, func, &current);
         }
         ans
     }
 }
 
-impl IntegratorMultiVariable for GaussianMulti {
+impl<T: Numeric> IntegratorMultiVariable for GaussianMulti<T> {
+    type Scalar = T;
+
     /// Partially integrates `func` by Gaussian quadrature over the variables in
     /// `idx_to_integrate`, once for each limit in `integration_limits` (so the array length
     /// sets the number of integrations).
@@ -756,13 +773,13 @@ impl IntegratorMultiVariable for GaussianMulti {
     /// let val = integrator.get([0; 1], &my_func, &[[0.0, 1.0]; 1], &point).unwrap();
     /// assert!(f64::abs(val - 7.0) < 1e-7);
     /// ```
-    fn get<F: Fn(&[f64; NUM_VARS]) -> f64, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
+    fn get<F: Fn(&[T; NUM_VARS]) -> T, const NUM_VARS: usize, const NUM_INTEGRATIONS: usize>(
         &self,
         idx_to_integrate: [usize; NUM_INTEGRATIONS],
         func: &F,
-        integration_limits: &[[f64; 2]; NUM_INTEGRATIONS],
-        point: &[f64; NUM_VARS],
-    ) -> Result<f64, CalcError> {
+        integration_limits: &[[T; 2]; NUM_INTEGRATIONS],
+        point: &[T; NUM_VARS],
+    ) -> Result<T, CalcError> {
         let table = nodes(self.config.integration_method, self.config.order)?;
         self.config.check_limits(integration_limits)?;
 

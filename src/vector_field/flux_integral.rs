@@ -34,12 +34,12 @@ use crate::vector_field::line_integral;
 /// // the flux integral is 0
 /// assert!(f64::abs(val) < 0.01);
 /// ```
-pub fn get_2d(
-    vector_field: &[&dyn Fn(&f64, &f64) -> f64; 2],
-    transformations: &[&dyn Fn(&f64) -> f64; 2],
-    integration_limit: &[f64; 2],
-) -> Result<f64, &'static str> {
-    Ok(line_integral::get_partial_2d(
+pub fn get_2d<T: Numeric>(
+    vector_field: &[&dyn Fn(&[T; 2]) -> T; 2],
+    transformations: &[&dyn Fn(T) -> T; 2],
+    integration_limit: &[T; 2],
+) -> Result<T, CalcError> {
+    get_2d_custom(
         vector_field,
         transformations,
         integration_limit,
@@ -54,12 +54,18 @@ pub fn get_2d(
     )?)
 }
 
-pub fn get_2d_custom(
-    vector_field: &[&dyn Fn(&f64, &f64) -> f64; 2],
-    transformations: &[&dyn Fn(&f64) -> f64; 2],
-    integration_limit: &[f64; 2],
+/// Same as [`get_2d`] but with an explicit iteration count for finer control.
+///
+/// # Errors
+/// [`CalcError::IterationsZero`] if `total_iterations` is zero, or
+/// [`CalcError::IntegrationLimitsIllDefined`] if the lower limit is not strictly less than the
+/// upper limit.
+pub fn get_2d_custom<T: Numeric>(
+    vector_field: &[&dyn Fn(&[T; 2]) -> T; 2],
+    transformations: &[&dyn Fn(T) -> T; 2],
+    integration_limit: &[T; 2],
     total_iterations: u64,
-) -> Result<f64, &'static str> {
+) -> Result<T, CalcError> {
     Ok(line_integral::get_partial_2d(
         vector_field,
         transformations,
