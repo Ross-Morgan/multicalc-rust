@@ -7,6 +7,7 @@
 use crate::numerical_derivative::derivator::{DerivatorMultiVariable, DerivatorSingleVariable};
 use crate::numerical_derivative::mode::{self, FiniteDifferenceMode};
 use crate::scalar::{Numeric, ScalarFn, ScalarFnN};
+use crate::utils::const_default::ConstDefault;
 use crate::utils::error_codes::CalcError;
 
 /// Low and high sample offsets (in units of the step size) and the divisor factor
@@ -30,6 +31,22 @@ pub struct FiniteDifferenceConfig<T = f64> {
     /// Factor the step is scaled by on each recursion level; only matters for third
     /// derivatives and higher. See [`mode::DEFAULT_STEP_SIZE_MULTIPLIER`].
     pub step_size_multiplier: T,
+}
+
+impl ConstDefault for FiniteDifferenceConfig<f32> {
+    const DEFAULT: Self = FiniteDifferenceConfig {
+        step_size: mode::DEFAULT_STEP_SIZE as f32,
+        method: FiniteDifferenceMode::Central,
+        step_size_multiplier: mode::DEFAULT_STEP_SIZE_MULTIPLIER as f32,
+    };
+}
+
+impl ConstDefault for FiniteDifferenceConfig<f64> {
+    const DEFAULT: Self = FiniteDifferenceConfig {
+        step_size: mode::DEFAULT_STEP_SIZE,
+        method: FiniteDifferenceMode::Central,
+        step_size_multiplier: mode::DEFAULT_STEP_SIZE_MULTIPLIER,
+    };
 }
 
 impl<T: Numeric> Default for FiniteDifferenceConfig<T> {
@@ -66,6 +83,15 @@ impl<T: Numeric> FiniteDifferenceConfig<T> {
 #[derive(Debug, Clone, Copy)]
 pub struct FiniteDifferenceSingle<T = f64> {
     pub config: FiniteDifferenceConfig<T>,
+}
+
+impl<T: Numeric> ConstDefault for FiniteDifferenceSingle<T>
+where
+    FiniteDifferenceConfig<T>: ConstDefault,
+{
+    const DEFAULT: Self = FiniteDifferenceSingle {
+        config: FiniteDifferenceConfig::DEFAULT,
+    };
 }
 
 impl<T: Numeric> Default for FiniteDifferenceSingle<T> {
@@ -117,6 +143,15 @@ impl<T: Numeric> DerivatorSingleVariable for FiniteDifferenceSingle<T> {
 #[derive(Debug, Clone, Copy)]
 pub struct FiniteDifferenceMulti<T = f64> {
     pub config: FiniteDifferenceConfig<T>,
+}
+
+impl<T: Numeric> ConstDefault for FiniteDifferenceMulti<T>
+where
+    FiniteDifferenceConfig<T>: ConstDefault,
+{
+    const DEFAULT: Self = FiniteDifferenceMulti {
+        config: FiniteDifferenceConfig::DEFAULT,
+    };
 }
 
 impl<T: Numeric> Default for FiniteDifferenceMulti<T> {

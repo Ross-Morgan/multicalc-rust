@@ -2,6 +2,7 @@ use crate::linear_algebra::Matrix;
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
+use crate::utils::const_default::ConstDefault;
 use crate::utils::error_codes::CalcError;
 
 /// Computes the Hessian matrix of a scalar multi-variable function. The differentiation backend
@@ -9,6 +10,12 @@ use crate::utils::error_codes::CalcError;
 /// that instead.
 pub struct Hessian<D: DerivatorMultiVariable = AutoDiffMulti> {
     derivator: D,
+}
+
+impl<D: DerivatorMultiVariable + ConstDefault> ConstDefault for Hessian<D> {
+    const DEFAULT: Self = Hessian {
+        derivator: D::DEFAULT,
+    };
 }
 
 impl<D: DerivatorMultiVariable + Default> Default for Hessian<D> {

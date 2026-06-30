@@ -4,6 +4,7 @@ use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::VectorFn;
 use crate::scalar::function::Component;
 use crate::utils::error_codes::CalcError;
+use crate::{numeric::Numeric, utils::const_default::ConstDefault};
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
@@ -13,6 +14,12 @@ use alloc::vec::Vec;
 /// use that instead.
 pub struct Jacobian<D: DerivatorMultiVariable = AutoDiffMulti> {
     derivator: D,
+}
+
+impl<D: DerivatorMultiVariable + ConstDefault> ConstDefault for Jacobian<D> {
+    const DEFAULT: Self = Jacobian {
+        derivator: D::DEFAULT,
+    };
 }
 
 impl<D: DerivatorMultiVariable + Default> Default for Jacobian<D> {

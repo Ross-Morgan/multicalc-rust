@@ -3,6 +3,7 @@ use core::marker::PhantomData;
 use crate::numerical_integration::integrator::*;
 use crate::numerical_integration::mode::IterativeMethod;
 use crate::scalar::Numeric;
+use crate::utils::const_default::ConstDefault;
 use crate::utils::error_codes::CalcError;
 
 /// Default interval count. A multiple of 12 so Boole (needs a multiple of 4) and
@@ -18,13 +19,18 @@ pub struct IterativeConfig {
     pub integration_method: IterativeMethod,
 }
 
+impl ConstDefault for IterativeConfig {
+    /// Boole's rule with [`DEFAULT_TOTAL_ITERATIONS`] intervals; optimal for most generic equations.
+    const DEFAULT: Self = IterativeConfig {
+        total_iterations: DEFAULT_TOTAL_ITERATIONS,
+        integration_method: IterativeMethod::Booles,
+    };
+}
+
 impl Default for IterativeConfig {
     /// Boole's rule with [`DEFAULT_TOTAL_ITERATIONS`] intervals; optimal for most generic equations.
     fn default() -> Self {
-        IterativeConfig {
-            total_iterations: DEFAULT_TOTAL_ITERATIONS,
-            integration_method: IterativeMethod::Booles,
-        }
+        Self::DEFAULT
     }
 }
 
@@ -147,12 +153,16 @@ pub struct IterativeSingle<T = f64> {
     _marker: PhantomData<T>,
 }
 
+impl<T> ConstDefault for IterativeSingle<T> {
+    const DEFAULT: Self = IterativeSingle {
+        config: IterativeConfig::DEFAULT,
+        _marker: PhantomData,
+    };
+}
+
 impl<T> Default for IterativeSingle<T> {
     fn default() -> Self {
-        IterativeSingle {
-            config: IterativeConfig::default(),
-            _marker: PhantomData,
-        }
+        Self::DEFAULT
     }
 }
 
@@ -267,12 +277,16 @@ pub struct IterativeMulti<T = f64> {
     _marker: PhantomData<T>,
 }
 
+impl<T> ConstDefault for IterativeMulti<T> {
+    const DEFAULT: Self = IterativeMulti {
+        config: IterativeConfig::DEFAULT,
+        _marker: PhantomData,
+    };
+}
+
 impl<T> Default for IterativeMulti<T> {
     fn default() -> Self {
-        IterativeMulti {
-            config: IterativeConfig::default(),
-            _marker: PhantomData,
-        }
+        Self::DEFAULT
     }
 }
 

@@ -2,6 +2,7 @@ use crate::linear_algebra::{Matrix, Vector};
 use crate::numerical_derivative::autodiff::AutoDiffMulti;
 use crate::numerical_derivative::derivator::DerivatorMultiVariable;
 use crate::scalar::{Numeric, ScalarFnN};
+use crate::utils::const_default::ConstDefault;
 use crate::utils::error_codes::CalcError;
 
 /// A second-order (quadratic) Taylor approximation of a function about a base point:
@@ -88,6 +89,12 @@ impl<const NUM_VARS: usize, T: Numeric> QuadraticApproximation<NUM_VARS, T> {
 /// autodiff ([`AutoDiffMulti`]); pass a finite-difference derivator explicitly to use that instead.
 pub struct QuadraticApproximator<D: DerivatorMultiVariable = AutoDiffMulti> {
     derivator: D,
+}
+
+impl<D: DerivatorMultiVariable + ConstDefault> ConstDefault for QuadraticApproximator<D> {
+    const DEFAULT: Self = QuadraticApproximator {
+        derivator: D::DEFAULT,
+    };
 }
 
 impl<D: DerivatorMultiVariable + Default> Default for QuadraticApproximator<D> {

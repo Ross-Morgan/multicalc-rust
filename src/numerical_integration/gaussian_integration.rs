@@ -4,6 +4,7 @@ use crate::gaussian_tables::nodes;
 use crate::numerical_integration::integrator::{IntegratorMultiVariable, IntegratorSingleVariable};
 use crate::numerical_integration::mode::GaussianQuadratureMethod;
 use crate::scalar::Numeric;
+use crate::utils::const_default::ConstDefault;
 use crate::utils::error_codes::CalcError;
 
 /// Default quadrature order (number of nodes).
@@ -18,13 +19,18 @@ pub struct GaussianConfig {
     pub integration_method: GaussianQuadratureMethod,
 }
 
+impl ConstDefault for GaussianConfig {
+    /// Gauss-Legendre at [`DEFAULT_QUADRATURE_ORDERS`]; optimal for most generic polynomial equations.
+    const DEFAULT: Self = GaussianConfig {
+        order: DEFAULT_QUADRATURE_ORDERS,
+        integration_method: GaussianQuadratureMethod::GaussLegendre,
+    };
+}
+
 impl Default for GaussianConfig {
     /// Gauss-Legendre at [`DEFAULT_QUADRATURE_ORDERS`]; optimal for most generic polynomial equations.
     fn default() -> Self {
-        GaussianConfig {
-            order: DEFAULT_QUADRATURE_ORDERS,
-            integration_method: GaussianQuadratureMethod::GaussLegendre,
-        }
+        Self::DEFAULT
     }
 }
 
@@ -76,12 +82,16 @@ pub struct GaussianSingle<T = f64> {
     _marker: PhantomData<T>,
 }
 
+impl<T> ConstDefault for GaussianSingle<T> {
+    const DEFAULT: Self = GaussianSingle {
+        config: GaussianConfig::DEFAULT,
+        _marker: PhantomData,
+    };
+}
+
 impl<T> Default for GaussianSingle<T> {
     fn default() -> Self {
-        GaussianSingle {
-            config: GaussianConfig::default(),
-            _marker: PhantomData,
-        }
+        Self::DEFAULT
     }
 }
 
@@ -210,12 +220,16 @@ pub struct GaussianMulti<T = f64> {
     _marker: PhantomData<T>,
 }
 
+impl<T> ConstDefault for GaussianMulti<T> {
+    const DEFAULT: Self = GaussianMulti {
+        config: GaussianConfig::DEFAULT,
+        _marker: PhantomData,
+    };
+}
+
 impl<T> Default for GaussianMulti<T> {
     fn default() -> Self {
-        GaussianMulti {
-            config: GaussianConfig::default(),
-            _marker: PhantomData,
-        }
+        Self::DEFAULT
     }
 }
 
